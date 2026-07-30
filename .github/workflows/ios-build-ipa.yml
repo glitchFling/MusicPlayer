@@ -29,6 +29,7 @@ jobs:
       - name: 📦 Initialise Swift package
         run: |
           swift package init --type executable --name MusicPlayer
+          # Ensure the source directory exists (SwiftPM creates Sources/<PackageName>)
           mkdir -p Sources/MusicPlayer
 
       # -------------------------------------------------
@@ -36,8 +37,16 @@ jobs:
       # -------------------------------------------------
       - name: 📂 Populate package sources
         run: |
+          echo "--- Repository contents before copy ---"
+          ls -R
+          # Remove the placeholder main.swift that SwiftPM generated
           rm -f Sources/MusicPlayer/main.swift || true
-          cp *.swift Sources/MusicPlayer/
+          # Verify the target folder exists (create if somehow missing)
+          mkdir -p Sources/MusicPlayer
+          # Copy every .swift file from the repo root into the package source folder
+          cp *.swift Sources/MusicPlayer/ || true
+          echo "--- After copy ---"
+          ls -R Sources/MusicPlayer
 
       # -------------------------------------------------
       # 3️⃣ Generate Xcode project from the package
@@ -52,14 +61,14 @@ jobs:
       - name: 🏗️ Build & archive (unsigned)
         run: |
           SIM_DEVICE="iPhone 14"
-          # First build to ensure the .app exists
+          # Build for simulator to produce the .app
           xcodebuild \
             -project MusicPlayer.xcodeproj \
             -scheme MusicPlayer \
             -destination "platform=iOS Simulator,name=${SIM_DEVICE},OS=latest" \
             clean build
 
-          # Archive – CODE_SIGNING_ALLOWED=NO makes the archive unsigned
+          # Archive – CODE_SIGNING_ALLOWED=NO produces an unsigned archive
           xcodebuild \
             -project MusicPlayer.xcodeproj \
             -scheme MusicPlayer \
@@ -71,7 +80,6 @@ jobs:
       # -------------------------------------------------
       - name: 📦 Export unsigned IPA
         run: |
-          # Minimal ExportOptions.plist for an unsigned IPA
           cat > ExportOptions.plist <<'EOS'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -79,8 +87,6 @@ jobs:
           <dict>
               <key>method</key><string>development</string>
               <key>signingStyle</key><string>manual</string>
-              <key>signingCertificate</key><string></string>
-              <key>provisioningProfiles</key><dict></dict>
               <key>allowProvisioningUpdates</key><true/>
           </dict>
           </plist>
@@ -91,7 +97,7 @@ jobs:
             -exportPath $PWD/ExportedIPA \
             -exportOptionsPlist ExportOptions.plist
 
-          # Zip the IPA for easier artifact upload
+          # Zip the IPA for artifact upload
           cd ExportedIPA
           zip -r MusicPlayer.ipa.zip *.ipa
           echo "ipa_zip_path=$(pwd)/MusicPlayer.ipa.zip" >> $GITHUB_OUTPUT
