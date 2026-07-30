@@ -11,7 +11,6 @@ jobs:
   build:
     runs-on: macos-14
     env:
-      # Force unsigned build – no signing certificates required
       CODE_SIGNING_ALLOWED: NO
 
     steps:
@@ -29,7 +28,6 @@ jobs:
       - name: 📦 Initialise Swift package
         run: |
           swift package init --type executable --name MusicPlayer
-          # Ensure the source directory exists (SwiftPM creates Sources/<PackageName>)
           mkdir -p Sources/MusicPlayer
 
       # -------------------------------------------------
@@ -39,24 +37,67 @@ jobs:
         run: |
           echo "--- Repository contents before copy ---"
           ls -R
-          # Remove the placeholder main.swift that SwiftPM generated
           rm -f Sources/MusicPlayer/main.swift || true
-          # Verify the target folder exists (create if somehow missing)
           mkdir -p Sources/MusicPlayer
-          # Copy every .swift file from the repo root into the package source folder
           cp *.swift Sources/MusicPlayer/ || true
           echo "--- After copy ---"
           ls -R Sources/MusicPlayer
 
       # -------------------------------------------------
-      # 3️⃣ Generate Xcode project from the package
+      # 3️⃣ Create minimal Info.plist (required for an iOS app target)
       # -------------------------------------------------
-      - name: 🛠️ Generate Xcode project
+      - name: 📄 Create Info.plist
         run: |
-          swift package generate-xcodeproj
+          cat > Info.plist <<'EOS'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>CFBundleIdentifier</key><string>com.example.MusicPlayer</string>
+              <key>CFBundleName</key><string>MusicPlayer</string>
+              <key>CFBundleVersion</key><string>1</string>
+              <key>CFBundleShortVersionString</key><string>1.0</string>
+              <key>UILaunchStoryboardName</key><string>LaunchScreen</string>
+              <key>UIRequiredDeviceCapabilities</key><array><string>armv7</string></array>
+              <key>UIInterfaceOrientation</key><string>UIInterfaceOrientationPortrait</string>
+              <key>UISupportedInterfaceOrientations</key>
+              <array>
+                  <string>UIInterfaceOrientationPortrait</string>
+                  <string>UIInterfaceOrientationLandscapeLeft</string>
+                  <string>UIInterfaceOrientationLandscapeRight</string>
+              </array>
+          </dict>
+          </plist>
+          EOS
 
       # -------------------------------------------------
-      # 4️⃣ Build & archive (unsigned) for the iOS Simulator
+      # 4️⃣ Install XcodeGen and generate an Xcode project from a spec
+      # -------------------------------------------------
+      - name: 📐 Install XcodeGen
+        run: |
+          brew install xcodegen
+
+      - name: 🛠️ Generate Xcode project with XcodeGen
+        run: |
+          cat > project.yml <<'YAML'
+          name: MusicPlayer
+          options:
+            bundleIdPrefix: com.example
+          settings:
+            PRODUCT_BUNDLE_IDENTIFIER: com.example.MusicPlayer
+            INFOPLIST_FILE: Info.plist
+          targets:
+            MusicPlayer:
+              type: application
+              platform: iOS
+              sources: [Sources/MusicPlayer]
+              settings:
+                INFOPLIST_FILE: Info.plist
+          YAML
+          xcodegen
+
+      # -------------------------------------------------
+      # 5️⃣ Build & archive (unsigned) for the iOS Simulator
       # -------------------------------------------------
       - name: 🏗️ Build & archive (unsigned)
         run: |
@@ -68,7 +109,7 @@ jobs:
             -destination "platform=iOS Simulator,name=${SIM_DEVICE},OS=latest" \
             clean build
 
-          # Archive – CODE_SIGNING_ALLOWED=NO produces an unsigned archive
+          # Archive – CODE_SIGNING_ALLOWED=NO makes the archive unsigned
           xcodebuild \
             -project MusicPlayer.xcodeproj \
             -scheme MusicPlayer \
@@ -76,7 +117,7 @@ jobs:
             archive
 
       # -------------------------------------------------
-      # 5️⃣ Export an unsigned .ipa from the archive
+      # 6️⃣ Export an unsigned .ipa from the archive
       # -------------------------------------------------
       - name: 📦 Export unsigned IPA
         run: |
@@ -97,13 +138,12 @@ jobs:
             -exportPath $PWD/ExportedIPA \
             -exportOptionsPlist ExportOptions.plist
 
-          # Zip the IPA for artifact upload
           cd ExportedIPA
           zip -r MusicPlayer.ipa.zip *.ipa
           echo "ipa_zip_path=$(pwd)/MusicPlayer.ipa.zip" >> $GITHUB_OUTPUT
 
       # -------------------------------------------------
-      # 6️⃣ Upload the unsigned IPA as a GitHub artifact
+      # 7️⃣ Upload the unsigned IPA as a GitHub artifact
       # -------------------------------------------------
       - name: 📤 Upload unsigned IPA artifact
         uses: actions/upload-artifact@v4
