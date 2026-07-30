@@ -5,7 +5,7 @@ struct ContentView: View {
     @StateObject private var player = MusicPlayer()
     @StateObject private var library = SongLibrary()
     @State private var speed: Float = 1
-    @State private var reverbOn = false
+    @State private var reverbAmount: Float = 0
     @State private var showingImporter = false
 
     private var isPlaying: Bool { player.playbackState == .playing }
@@ -35,7 +35,8 @@ struct ContentView: View {
         }
         .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.audio, .mp3, .mpeg4Audio, .wav, .aiff], allowsMultipleSelection: true) { result in
             switch result {
-            case .success(let urls): urls.forEach(library.importSong(from:))
+            case .success(let urls):
+                Task { for url in urls { await library.importSong(from: url) } }
             case .failure: library.lastError = .accessDenied
             }
         }
@@ -77,8 +78,16 @@ struct ContentView: View {
     private var trackInfo: some View {
         VStack(alignment: .leading, spacing: 6) {
             Text("NOW PLAYING").font(.system(size: 11, weight: .bold, design: .monospaced)).tracking(2).foregroundColor(.deckBrass)
-            Text(player.currentSong?.title ?? "Select a tape to begin")
-                .font(.system(.title2, design: .serif)).foregroundColor(.deckBone).lineLimit(2)
+            HStack(spacing: 14) {
+                ArtworkView(url: player.currentSong?.artworkURL, size: 72)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(player.currentSong?.title ?? "Select a tape to begin")
+                        .font(.system(.title2, design: .serif)).foregroundColor(.deckBone).lineLimit(2)
+                    if let artist = player.currentSong?.artist, !artist.isEmpty {
+                        Text(artist).font(.system(.subheadline, design: .monospaced)).foregroundColor(.deckBone.opacity(0.65))
+                    }
+                }
+            }
         }
     }
 
@@ -90,9 +99,14 @@ struct ContentView: View {
             } else {
                 ForEach(library.songs) { song in
                     Button { player.load(song) } label: {
-                        HStack {
-                            Image(systemName: player.currentSong?.id == song.id ? "waveform" : "music.note")
-                            Text(song.title).lineLimit(1)
+                        HStack(spacing: 10) {
+                            ArtworkView(url: song.artworkURL, size: 42)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(song.title).lineLimit(1)
+                                if let artist = song.artist, !artist.isEmpty {
+                                    Text(artist).font(.system(size: 10, design: .monospaced)).foregroundColor(.deckBone.opacity(0.55)).lineLimit(1)
+                                }
+                            }
                             Spacer()
                             if player.currentSong?.id == song.id { Text(isPlaying ? "PLAYING" : "READY").font(.system(size: 10, design: .monospaced)) }
                         }
@@ -129,9 +143,13 @@ struct ContentView: View {
                 Text("\(speed, specifier: "%.2fx")").font(.system(.body, design: .monospaced)).foregroundColor(.deckBrass)
             }
             Slider(value: $speed, in: 0.5...2, step: 0.01).tint(.deckBrass)
-            Toggle("TONE / REVERB", isOn: $reverbOn).font(.system(size: 12, weight: .bold, design: .monospaced)).foregroundColor(.deckBone)
-                .tint(.deckBrass)
-                .onChange(of: reverbOn) { player.setReverb(enabled: $0) }
+            HStack {
+                Text("REVERB").font(.system(size: 11, weight: .bold, design: .monospaced)).tracking(2).foregroundColor(.deckBone.opacity(0.55))
+                Spacer()
+                Text("\(reverbAmount, specifier: "%.0f%%")").font(.system(.body, design: .monospaced)).foregroundColor(.deckBrass)
+            }
+            Slider(value: $reverbAmount, in: 0...100, step: 1).tint(.deckBrass)
+                .onChange(of: reverbAmount) { player.setReverb(amount: $0) }
         }
     }
 }

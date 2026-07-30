@@ -29,7 +29,7 @@ final class MusicPlayer: ObservableObject {
 
     private let audioEngine = AVAudioEngine()
     private let playerNode = AVAudioPlayerNode()
-    private let timePitch = AVAudioUnitTimePitch()
+    private let varispeed = AVAudioUnitVarispeed()
     private let reverb = AVAudioUnitReverb()
     private var audioFile: AVAudioFile?
     private var observers: [NSObjectProtocol] = []
@@ -53,17 +53,17 @@ final class MusicPlayer: ObservableObject {
     private func configureSession() {
         do {
             let session = AVAudioSession.sharedInstance()
-            try session.setCategory(.playback, mode: .default)
-            try session.setActive(true)
+            try session.setCategory(.playback, mode: .default, options: [.duckOthers])
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
         } catch { lastError = .engineUnavailable }
     }
 
     private func setupAudioGraph() {
         audioEngine.attach(playerNode)
-        audioEngine.attach(timePitch)
+        audioEngine.attach(varispeed)
         audioEngine.attach(reverb)
-        audioEngine.connect(playerNode, to: timePitch, format: nil)
-        audioEngine.connect(timePitch, to: reverb, format: nil)
+        audioEngine.connect(playerNode, to: varispeed, format: nil)
+        audioEngine.connect(varispeed, to: reverb, format: nil)
         audioEngine.connect(reverb, to: audioEngine.mainMixerNode, format: nil)
         reverb.loadFactoryPreset(.mediumHall)
         reverb.wetDryMix = 0
@@ -102,6 +102,6 @@ final class MusicPlayer: ObservableObject {
         if playbackState == .playing { playbackState = .paused }
     }
 
-    func setSpeed(_ speed: Float) { timePitch.rate = speed }
-    func setReverb(enabled: Bool) { reverb.wetDryMix = enabled ? 50 : 0 }
+    func setSpeed(_ speed: Float) { varispeed.rate = min(max(speed, 0.5), 2.0) }
+    func setReverb(amount: Float) { reverb.wetDryMix = min(max(amount, 0), 100) }
 }
