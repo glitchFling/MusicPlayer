@@ -1,0 +1,107 @@
+# .github/workflows/ios-build-ipa.yml
+name: iOS Build & Export Unsigned IPA
+
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  build:
+    runs-on: macos-14
+    env:
+      # Force unsigned build – no signing certificates required
+      CODE_SIGNING_ALLOWED: NO
+
+    steps:
+      - name: ⏬ Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🍏 Verify Xcode version
+        run: |
+          xcode-select -p
+          xcodebuild -version
+
+      # -------------------------------------------------
+      # 1️⃣ Initialise a Swift package (executable) – gives us a clean Sources folder
+      # -------------------------------------------------
+      - name: 📦 Initialise Swift package
+        run: |
+          swift package init --type executable --name MusicPlayer
+          mkdir -p Sources/MusicPlayer
+
+      # -------------------------------------------------
+      # 2️⃣ Populate package sources with your existing .swift files
+      # -------------------------------------------------
+      - name: 📂 Populate package sources
+        run: |
+          rm -f Sources/MusicPlayer/main.swift || true
+          cp *.swift Sources/MusicPlayer/
+
+      # -------------------------------------------------
+      # 3️⃣ Generate Xcode project from the package
+      # -------------------------------------------------
+      - name: 🛠️ Generate Xcode project
+        run: |
+          swift package generate-xcodeproj
+
+      # -------------------------------------------------
+      # 4️⃣ Build & archive (unsigned) for the iOS Simulator
+      # -------------------------------------------------
+      - name: 🏗️ Build & archive (unsigned)
+        run: |
+          SIM_DEVICE="iPhone 14"
+          # First build to ensure the .app exists
+          xcodebuild \
+            -project MusicPlayer.xcodeproj \
+            -scheme MusicPlayer \
+            -destination "platform=iOS Simulator,name=${SIM_DEVICE},OS=latest" \
+            clean build
+
+          # Archive – CODE_SIGNING_ALLOWED=NO makes the archive unsigned
+          xcodebuild \
+            -project MusicPlayer.xcodeproj \
+            -scheme MusicPlayer \
+            -archivePath $PWD/MusicPlayer.xcarchive \
+            archive
+
+      # -------------------------------------------------
+      # 5️⃣ Export an unsigned .ipa from the archive
+      # -------------------------------------------------
+      - name: 📦 Export unsigned IPA
+        run: |
+          # Minimal ExportOptions.plist for an unsigned IPA
+          cat > ExportOptions.plist <<'EOS'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key><string>development</string>
+              <key>signingStyle</key><string>manual</string>
+              <key>signingCertificate</key><string></string>
+              <key>provisioningProfiles</key><dict></dict>
+              <key>allowProvisioningUpdates</key><true/>
+          </dict>
+          </plist>
+          EOS
+
+          xcodebuild -exportArchive \
+            -archivePath $PWD/MusicPlayer.xcarchive \
+            -exportPath $PWD/ExportedIPA \
+            -exportOptionsPlist ExportOptions.plist
+
+          # Zip the IPA for easier artifact upload
+          cd ExportedIPA
+          zip -r MusicPlayer.ipa.zip *.ipa
+          echo "ipa_zip_path=$(pwd)/MusicPlayer.ipa.zip" >> $GITHUB_OUTPUT
+
+      # -------------------------------------------------
+      # 6️⃣ Upload the unsigned IPA as a GitHub artifact
+      # -------------------------------------------------
+      - name: 📤 Upload unsigned IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MusicPlayer.unsigned.ipa
+          path: ${{ steps.export-ipa.outputs.ipa_zip_path }}
+          retention-days: 7
