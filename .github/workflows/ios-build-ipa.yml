@@ -22,17 +22,11 @@ jobs:
           xcode-select -p
           xcodebuild -version
 
-      # -------------------------------------------------
-      # 1️⃣ Initialise a Swift package (executable) – gives us a clean Sources folder
-      # -------------------------------------------------
       - name: 📦 Initialise Swift package
         run: |
           swift package init --type executable --name MusicPlayer
           mkdir -p Sources/MusicPlayer
 
-      # -------------------------------------------------
-      # 2️⃣ Populate package sources with your existing .swift files
-      # -------------------------------------------------
       - name: 📂 Populate package sources
         run: |
           echo "--- Repository contents before copy ---"
@@ -43,9 +37,6 @@ jobs:
           echo "--- After copy ---"
           ls -R Sources/MusicPlayer
 
-      # -------------------------------------------------
-      # 3️⃣ Create minimal Info.plist (required for an iOS app target)
-      # -------------------------------------------------
       - name: 📄 Create Info.plist
         run: |
           cat > Info.plist <<'EOS'
@@ -58,31 +49,20 @@ jobs:
               <key>CFBundleVersion</key><string>1</string>
               <key>CFBundleShortVersionString</key><string>1.0</string>
               <key>UILaunchStoryboardName</key><string>LaunchScreen</string>
-              <key>UIRequiredDeviceCapabilities</key><array><string>armv7</string></array>
-              <key>UIInterfaceOrientation</key><string>UIInterfaceOrientationPortrait</string>
-              <key>UISupportedInterfaceOrientations</key>
-              <array>
-                  <string>UIInterfaceOrientationPortrait</string>
-                  <string>UIInterfaceOrientationLandscapeLeft</string>
-                  <string>UIInterfaceOrientationLandscapeRight</string>
-              </array>
           </dict>
           </plist>
           EOS
 
-      # -------------------------------------------------
-      # 4️⃣ Install XcodeGen and generate an Xcode project from a spec
-      # -------------------------------------------------
       - name: 📐 Install XcodeGen
-        run: |
-          brew install xcodegen
+        run: brew install xcodegen
 
-      - name: 🛠️ Generate Xcode project with XcodeGen
+      - name: 🛠️ Generate Xcode project with XcodeGen (format‑14)
         run: |
           cat > project.yml <<'YAML'
           name: MusicPlayer
           options:
             bundleIdPrefix: com.example
+            projectFormatVersion: 14
           settings:
             PRODUCT_BUNDLE_IDENTIFIER: com.example.MusicPlayer
             INFOPLIST_FILE: Info.plist
@@ -94,31 +74,22 @@ jobs:
               settings:
                 INFOPLIST_FILE: Info.plist
           YAML
-          xcodegen
+          xcodegen --spec project.yml
 
-      # -------------------------------------------------
-      # 5️⃣ Build & archive (unsigned) for the iOS Simulator
-      # -------------------------------------------------
       - name: 🏗️ Build & archive (unsigned)
         run: |
           SIM_DEVICE="iPhone 14"
-          # Build for simulator to produce the .app
           xcodebuild \
             -project MusicPlayer.xcodeproj \
             -scheme MusicPlayer \
             -destination "platform=iOS Simulator,name=${SIM_DEVICE},OS=latest" \
             clean build
-
-          # Archive – CODE_SIGNING_ALLOWED=NO makes the archive unsigned
           xcodebuild \
             -project MusicPlayer.xcodeproj \
             -scheme MusicPlayer \
             -archivePath $PWD/MusicPlayer.xcarchive \
             archive
 
-      # -------------------------------------------------
-      # 6️⃣ Export an unsigned .ipa from the archive
-      # -------------------------------------------------
       - name: 📦 Export unsigned IPA
         run: |
           cat > ExportOptions.plist <<'EOS'
@@ -132,19 +103,14 @@ jobs:
           </dict>
           </plist>
           EOS
-
           xcodebuild -exportArchive \
             -archivePath $PWD/MusicPlayer.xcarchive \
             -exportPath $PWD/ExportedIPA \
             -exportOptionsPlist ExportOptions.plist
-
           cd ExportedIPA
           zip -r MusicPlayer.ipa.zip *.ipa
           echo "ipa_zip_path=$(pwd)/MusicPlayer.ipa.zip" >> $GITHUB_OUTPUT
 
-      # -------------------------------------------------
-      # 7️⃣ Upload the unsigned IPA as a GitHub artifact
-      # -------------------------------------------------
       - name: 📤 Upload unsigned IPA artifact
         uses: actions/upload-artifact@v4
         with:
