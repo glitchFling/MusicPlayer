@@ -57,8 +57,8 @@ jobs:
           </plist>
           EOS
 
-      # 3. Write the xcodeproj manually (objectVersion 56 = Xcode 14/15 compatible)
-      - name: Create Xcode project (hand-crafted pbxproj)
+      # 3. Hand-craft the xcodeproj (objectVersion 56 = Xcode 14/15 compatible)
+      - name: Create Xcode project
         run: |
           mkdir -p MusicPlayer.xcodeproj
           cat > MusicPlayer.xcodeproj/project.pbxproj << 'PBXEOF'
@@ -286,57 +286,38 @@ jobs:
             <AnalyzeAction buildConfiguration="Debug"/>
           </Scheme>
           SCHEME
-
           echo "Done. xcodeproj contents:"
           ls -R MusicPlayer.xcodeproj
 
-      # 4. Build for iOS Simulator
+      # 4. Build for iOS Simulator (produces unsigned .app in DerivedData)
       - name: Build for iOS Simulator
         run: |
           xcodebuild \
             -project MusicPlayer.xcodeproj \
             -scheme MusicPlayer \
             -destination "platform=iOS Simulator,name=iPhone 14,OS=latest" \
+            -derivedDataPath $PWD/DerivedData \
             clean build
 
-      # 5. Archive (unsigned)
-      - name: Archive (unsigned)
+      # 5. Package the .app directly into an IPA (no archive/export needed)
+      #    An IPA is just a zip of Payload/<AppName>.app
+      - name: Package unsigned IPA from simulator .app
+        id: package_ipa
         run: |
-          xcodebuild \
-            -project MusicPlayer.xcodeproj \
-            -scheme MusicPlayer \
-            -archivePath $PWD/MusicPlayer.xcarchive \
-            archive
+          APP_PATH=$(find $PWD/DerivedData -name "MusicPlayer.app" -not -path "*/Index.noindex/*" | head -1)
+          echo "Found .app at: $APP_PATH"
 
-      # 6. Export unsigned IPA
-      - name: Export unsigned IPA
-        id: export_ipa
-        run: |
-          cat > ExportOptions.plist << 'EOS'
-          <?xml version="1.0" encoding="UTF-8"?>
-          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-          <plist version="1.0">
-          <dict>
-            <key>method</key><string>development</string>
-            <key>signingStyle</key><string>manual</string>
-            <key>allowProvisioningUpdates</key><true/>
-          </dict>
-          </plist>
-          EOS
+          mkdir -p Payload
+          cp -r "$APP_PATH" Payload/MusicPlayer.app
 
-          xcodebuild -exportArchive \
-            -archivePath $PWD/MusicPlayer.xcarchive \
-            -exportPath $PWD/ExportedIPA \
-            -exportOptionsPlist ExportOptions.plist
+          zip -r MusicPlayer.ipa Payload/
+          echo "IPA size: $(du -sh MusicPlayer.ipa)"
+          echo "ipa_path=$PWD/MusicPlayer.ipa" >> $GITHUB_OUTPUT
 
-          cd ExportedIPA
-          zip -r MusicPlayer.ipa.zip *.ipa
-          echo "ipa_zip_path=$(pwd)/MusicPlayer.ipa.zip" >> $GITHUB_OUTPUT
-
-      # 7. Upload artifact
+      # 6. Upload IPA as artifact
       - name: Upload unsigned IPA artifact
         uses: actions/upload-artifact@v4
         with:
           name: MusicPlayer.unsigned.ipa
-          path: ${{ steps.export_ipa.outputs.ipa_zip_path }}
+          path: ${{ steps.package_ipa.outputs.ipa_path }}
           retention-days: 7
