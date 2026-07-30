@@ -1,87 +1,107 @@
-// MusicPlayer.swift
-import Foundation
 import AVFoundation
-import SwiftUI
+import Combine
+import Foundation
 
-class MusicPlayer: ObservableObject {
-    // List of song filenames bundled with the app. Add your .mp3 files to the project.
-    private let songFiles = ["song1.mp3", "song2.mp3", "song3.mp3", "song4.mp3"]
-    
-    private var audioEngine = AVAudioEngine()
-    private var playerNode = AVAudioPlayerNode()
-    private var timePitch = AVAudioUnitTimePitch()
-    private var reverb = AVAudioUnitReverb()
-    private var audioFile: AVAudioFile?
-    
-    @Published var currentSong: String?
-    
-    init() {
-        setupAudioGraph()
+final class MusicPlayer: ObservableObject {
+    enum PlaybackState: Equatable {
+        case idle
+        case playing
+        case paused
+        case finished
     }
-    
+
+    enum PlayerError: LocalizedError, Identifiable {
+        case unableToLoad
+        case engineUnavailable
+
+        var id: String { errorDescription ?? "player-error" }
+        var errorDescription: String? {
+            switch self {
+            case .unableToLoad: return "This track could not be loaded. Try importing it again."
+            case .engineUnavailable: return "Audio is unavailable right now. Try pressing play again."
+            }
+        }
+    }
+
+    @Published private(set) var currentSong: Song?
+    @Published private(set) var playbackState: PlaybackState = .idle
+    @Published var lastError: PlayerError?
+
+    private let audioEngine = AVAudioEngine()
+    private let playerNode = AVAudioPlayerNode()
+    private let timePitch = AVAudioUnitTimePitch()
+    private let reverb = AVAudioUnitReverb()
+    private var audioFile: AVAudioFile?
+    private var observers: [NSObjectProtocol] = []
+
+    init() {
+        configureSession()
+        setupAudioGraph()
+        observers.append(NotificationCenter.default.addObserver(forName: AVAudioSession.interruptionNotification, object: nil, queue: .main) { [weak self] note in
+            guard let type = note.userInfo?[AVAudioSessionInterruptionTypeKey] as? UInt,
+                  let interruption = AVAudioSession.InterruptionType(rawValue: type) else { return }
+            if interruption == .began { self?.pause() }
+            else if interruption == .ended { try? self?.audioEngine.start() }
+        })
+        observers.append(NotificationCenter.default.addObserver(forName: AVAudioSession.routeChangeNotification, object: nil, queue: .main) { [weak self] _ in
+            try? self?.audioEngine.start()
+        })
+    }
+
+    deinit { observers.forEach(NotificationCenter.default.removeObserver) }
+
+    private func configureSession() {
+        do {
+            let session = AVAudioSession.sharedInstance()
+            try session.setCategory(.playback, mode: .default)
+            try session.setActive(true)
+        } catch { lastError = .engineUnavailable }
+    }
+
     private func setupAudioGraph() {
-        // Attach nodes
         audioEngine.attach(playerNode)
         audioEngine.attach(timePitch)
         audioEngine.attach(reverb)
-        
-        // Connect nodes: Player -> TimePitch -> Reverb -> Output
         audioEngine.connect(playerNode, to: timePitch, format: nil)
         audioEngine.connect(timePitch, to: reverb, format: nil)
         audioEngine.connect(reverb, to: audioEngine.mainMixerNode, format: nil)
-        
-        // Default reverb settings (dry)
         reverb.loadFactoryPreset(.mediumHall)
         reverb.wetDryMix = 0
-        
-        // Start engine
-        do {
-            try audioEngine.start()
-        } catch {
-            print("AudioEngine start error: \(error)")
-        }
+        do { try audioEngine.start() } catch { lastError = .engineUnavailable }
     }
-    
-    func playRandomSong() {
-        guard let randomName = songFiles.randomElement() else { return }
-        guard let url = Bundle.main.url(forResource: randomName, withExtension: nil) else {
-            print("Unable to locate \(randomName) in bundle")
-            return
-        }
+
+    func load(_ song: Song) {
         do {
-            audioFile = try AVAudioFile(forReading: url)
-            scheduleFile()
+            let file = try AVAudioFile(forReading: song.fileURL)
+            audioFile = file
+            currentSong = song
+            playerNode.stop()
+            playerNode.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
+                DispatchQueue.main.async { self?.playbackState = .finished }
+            }
             playerNode.play()
-            currentSong = randomName.replacingOccurrences(of: ".mp3", with: "")
+            playbackState = .playing
+            lastError = nil
         } catch {
-            print("Failed to load audio file: \(error)")
+            playbackState = .idle
+            lastError = .unableToLoad
         }
     }
-    
-    private func scheduleFile() {
-        guard let audioFile = audioFile else { return }
-        playerNode.stop()
-        playerNode.scheduleFile(audioFile, at: nil, completionHandler: nil)
-    }
-    
+
     func play() {
-        if !playerNode.isPlaying {
+        guard audioFile != nil else { lastError = .unableToLoad; return }
+        do {
+            if !audioEngine.isRunning { try audioEngine.start() }
             playerNode.play()
-        }
+            playbackState = .playing
+        } catch { lastError = .engineUnavailable }
     }
-    
+
     func pause() {
-        if playerNode.isPlaying {
-            playerNode.pause()
-        }
+        playerNode.pause()
+        if playbackState == .playing { playbackState = .paused }
     }
-    
-    func setSpeed(_ speed: Float) {
-        // speed range 0.5x – 2.0x
-        timePitch.rate = speed
-    }
-    
-    func setReverb(enabled: Bool) {
-        reverb.wetDryMix = enabled ? 50 : 0 // 0% dry, 100% wet max; 50 gives a lush feel
-    }
+
+    func setSpeed(_ speed: Float) { timePitch.rate = speed }
+    func setReverb(enabled: Bool) { reverb.wetDryMix = enabled ? 50 : 0 }
 }

@@ -1,9 +1,22 @@
 import Foundation
 
-struct Song: Identifiable {
-    let id = UUID()
-    let fileName: String // e.g., "song1.mp3"
-    var title: String {
-        return fileName.replacingOccurrences(of: ".mp3", with: "").capitalized
+struct Song: Identifiable, Codable, Equatable {
+    let id: UUID
+    let title: String
+    let fileURL: URL
+    let dateAdded: Date
+
+    init(id: UUID = UUID(), title: String, fileURL: URL, dateAdded: Date = .now) {
+        self.id = id
+        self.title = title
+        self.fileURL = fileURL
+        self.dateAdded = dateAdded
+    }
+
+    init(fileURL: URL) {
+        self.init(
+            title: fileURL.deletingPathExtension().lastPathComponent,
+            fileURL: fileURL
+        )
     }
 }

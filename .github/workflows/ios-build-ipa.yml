@@ -74,6 +74,8 @@ jobs:
             AA000002 = {isa = PBXBuildFile; fileRef = BB000002; };
             AA000003 = {isa = PBXBuildFile; fileRef = BB000003; };
             AA000004 = {isa = PBXBuildFile; fileRef = BB000004; };
+            AA000005 = {isa = PBXBuildFile; fileRef = BB000005; };
+            AA000006 = {isa = PBXBuildFile; fileRef = BB000006; };
           /* End PBXBuildFile section */
 
           /* Begin PBXFileReference section */
@@ -81,6 +83,8 @@ jobs:
             BB000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
             BB000003 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicPlayer.swift; sourceTree = "<group>"; };
             BB000004 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Song.swift; sourceTree = "<group>"; };
+            BB000005 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongLibrary.swift; sourceTree = "<group>"; };
+            BB000006 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
             CC000001 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MusicPlayer.app; sourceTree = BUILT_PRODUCTS_DIR; };
           /* End PBXFileReference section */
 
@@ -101,7 +105,7 @@ jobs:
             };
             EE000002 = {
               isa = PBXGroup;
-              children = (BB000001, BB000002, BB000003, BB000004);
+              children = (BB000001, BB000002, BB000003, BB000004, BB000005, BB000006);
               path = MusicPlayerSrc;
               sourceTree = "<group>";
             };
@@ -161,7 +165,7 @@ jobs:
             FF000002 = {
               isa = PBXSourcesBuildPhase;
               buildActionMask = 2147483647;
-              files = (AA000001, AA000002, AA000003, AA000004);
+              files = (AA000001, AA000002, AA000003, AA000004, AA000005, AA000006);
               runOnlyForDeploymentPostprocessing = 0;
             };
           /* End PBXSourcesBuildPhase section */
