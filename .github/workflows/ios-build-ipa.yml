@@ -291,7 +291,7 @@ jobs:
           /* End XCConfigurationList section */
 
             rootObject = FF000000;
-          };
+          }
           PBXEOF
 
           mkdir -p "MusicPlayer.xcodeproj/xcshareddata/xcschemes"
