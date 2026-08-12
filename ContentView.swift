@@ -1,12 +1,42 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+enum PlaybackMode: String, CaseIterable {
+    case repeatOne
+    case repeatAll
+    case shuffle
+
+    var title: String {
+        switch self {
+        case .repeatOne: return "LOOP"
+        case .repeatAll: return "SEQUENCE"
+        case .shuffle: return "SHUFFLE"
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .repeatOne: return "repeat.1"
+        case .repeatAll: return "repeat"
+        case .shuffle: return "shuffle"
+        }
+    }
+}
+
 struct ContentView: View {
     @StateObject private var player = MusicPlayer()
     @StateObject private var library = SongLibrary()
+    @State private var playbackMode: PlaybackMode = .shuffle
     @State private var speed: Float = 1
     @State private var reverbAmount: Float = 0
     @State private var showingImporter = false
+    @State private var isScrubbing = false
+    @State private var scrubTime: TimeInterval = 0
+
+    private var nextPlaybackMode: PlaybackMode {
+        guard let index = PlaybackMode.allCases.firstIndex(of: playbackMode) else { return .shuffle }
+        return PlaybackMode.allCases[(index + 1) % PlaybackMode.allCases.count]
+    }
 
     private var isPlaying: Bool { player.playbackState == .playing }
 
@@ -49,6 +79,45 @@ struct ContentView: View {
             Text(errorMessage)
         }
         .onChange(of: speed) { player.setSpeed($0) }
+        .onChange(of: player.playbackState) { state in
+            guard state == .finished else { return }
+            advancePlayback()
+        }
+    }
+
+    private func randomSong(excluding current: Song?) -> Song? {
+        guard !library.songs.isEmpty else { return nil }
+        let choices = library.songs.count > 1
+            ? library.songs.filter { $0.id != current?.id }
+            : library.songs
+        return choices.randomElement()
+    }
+
+    private func advancePlayback() {
+        guard !library.songs.isEmpty else { return }
+        switch playbackMode {
+        case .repeatOne:
+            if let current = player.currentSong { player.load(current) }
+        case .repeatAll:
+            guard let current = player.currentSong,
+                  let index = library.songs.firstIndex(where: { $0.id == current.id }) else {
+                if let first = library.songs.first { player.load(first) }
+                return
+            }
+            player.load(library.songs[(index + 1) % library.songs.count])
+        case .shuffle:
+            if let song = randomSong(excluding: player.currentSong) { player.load(song) }
+        }
+    }
+
+    private func playRandomSong() {
+        if let song = randomSong(excluding: player.currentSong) { player.load(song) }
+    }
+
+    private func formatTime(_ time: TimeInterval) -> String {
+        guard time.isFinite else { return "0:00" }
+        let totalSeconds = max(0, Int(time.rounded(.down)))
+        return "\(totalSeconds / 60):\(String(format: "%02d", totalSeconds % 60))"
     }
 
     private var errorPresented: Binding<Bool> {
@@ -120,18 +189,52 @@ struct ContentView: View {
     }
 
     private var transport: some View {
-        HStack(spacing: 12) {
-            Button { isPlaying ? player.pause() : player.play() } label: {
-                Label(isPlaying ? "PAUSE" : "PLAY", systemImage: isPlaying ? "pause.fill" : "play.fill")
+        VStack(spacing: 12) {
+            VStack(spacing: 4) {
+                Slider(value: Binding(
+                    get: { isScrubbing ? scrubTime : player.currentTime },
+                    set: { scrubTime = $0 }
+                ), in: 0...max(player.duration, 0.01), onEditingChanged: { editing in
+                    if editing {
+                        scrubTime = player.currentTime
+                    } else {
+                        player.seek(to: scrubTime)
+                    }
+                    isScrubbing = editing
+                })
+                .tint(.deckBrass)
+                .disabled(player.duration <= 0)
+                .accessibilityLabel("Playback progress")
+                HStack {
+                    Text(formatTime(player.currentTime))
+                    Spacer()
+                    Text(formatTime(player.duration))
+                }
+                .font(.system(size: 11, design: .monospaced))
+                .foregroundColor(.deckBone.opacity(0.6))
             }
-            .buttonStyle(DeckButtonStyle(accent: true))
-            .accessibilityLabel(isPlaying ? "Pause playback" : "Play playback")
-            Button {
-                if let song = library.songs.randomElement() { player.load(song) }
-            } label: { Image(systemName: "shuffle") }
+            HStack(spacing: 12) {
+                Button {
+                    if player.currentSong == nil { playRandomSong() }
+                    else { isPlaying ? player.pause() : player.play() }
+                } label: {
+                    Label(isPlaying ? "PAUSE" : "PLAY", systemImage: isPlaying ? "pause.fill" : "play.fill")
+                }
+                .buttonStyle(DeckButtonStyle(accent: true))
+                .accessibilityLabel(isPlaying ? "Pause playback" : "Play playback")
+                Button { playRandomSong() } label: { Image(systemName: "shuffle") }
+                    .buttonStyle(DeckButtonStyle())
+                    .frame(width: 74)
+                    .accessibilityLabel("Play a random song")
+                Button {
+                    playbackMode = nextPlaybackMode
+                } label: {
+                    Label(playbackMode.title, systemImage: playbackMode.icon)
+                }
                 .buttonStyle(DeckButtonStyle())
-                .frame(width: 74)
-                .accessibilityLabel("Shuffle library")
+                .accessibilityLabel("Playback mode: \(playbackMode.title)")
+                .accessibilityHint("Changes to \(nextPlaybackMode.title)")
+            }
         }
     }
 

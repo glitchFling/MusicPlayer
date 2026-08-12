@@ -25,6 +25,8 @@ final class MusicPlayer: ObservableObject {
 
     @Published private(set) var currentSong: Song?
     @Published private(set) var playbackState: PlaybackState = .idle
+    @Published private(set) var duration: TimeInterval = 0
+    @Published private(set) var currentTime: TimeInterval = 0
     @Published var lastError: PlayerError?
 
     private let audioEngine = AVAudioEngine()
@@ -33,6 +35,9 @@ final class MusicPlayer: ObservableObject {
     private let reverb = AVAudioUnitReverb()
     private var audioFile: AVAudioFile?
     private var observers: [NSObjectProtocol] = []
+    private var progressTimer: Timer?
+    private var progressOffset: TimeInterval = 0
+    private var loadGeneration = 0
 
     init() {
         configureSession()
@@ -48,7 +53,10 @@ final class MusicPlayer: ObservableObject {
         })
     }
 
-    deinit { observers.forEach(NotificationCenter.default.removeObserver) }
+    deinit {
+        progressTimer?.invalidate()
+        observers.forEach(NotificationCenter.default.removeObserver)
+    }
 
     private func configureSession() {
         do {
@@ -73,16 +81,36 @@ final class MusicPlayer: ObservableObject {
     func load(_ song: Song) {
         do {
             let file = try AVAudioFile(forReading: song.fileURL)
+            loadGeneration += 1
+            let generation = loadGeneration
+            stopProgressUpdates()
+            playerNode.stop()
             audioFile = file
             currentSong = song
-            playerNode.stop()
+            duration = file.processingFormat.sampleRate > 0
+                ? Double(file.length) / file.processingFormat.sampleRate
+                : 0
+            currentTime = 0
+            progressOffset = 0
             playerNode.scheduleFile(file, at: nil, completionCallbackType: .dataPlayedBack) { [weak self] _ in
-                DispatchQueue.main.async { self?.playbackState = .finished }
+                DispatchQueue.main.async {
+                    guard let self, self.loadGeneration == generation else { return }
+                    self.currentTime = self.duration
+                    self.stopProgressUpdates()
+                    self.playbackState = .finished
+                }
             }
             playerNode.play()
             playbackState = .playing
+            startProgressUpdates()
             lastError = nil
         } catch {
+            loadGeneration += 1
+            stopProgressUpdates()
+            audioFile = nil
+            duration = 0
+            currentTime = 0
+            progressOffset = 0
             playbackState = .idle
             lastError = .unableToLoad
         }
@@ -94,12 +122,72 @@ final class MusicPlayer: ObservableObject {
             if !audioEngine.isRunning { try audioEngine.start() }
             playerNode.play()
             playbackState = .playing
+            startProgressUpdates()
         } catch { lastError = .engineUnavailable }
     }
 
     func pause() {
         playerNode.pause()
+        stopProgressUpdates()
         if playbackState == .playing { playbackState = .paused }
+    }
+
+    func seek(to time: TimeInterval) {
+        guard let file = audioFile, duration > 0, time.isFinite else { return }
+        let target = min(max(time, 0), duration)
+        let wasPlaying = playbackState == .playing
+        let sampleRate = file.processingFormat.sampleRate
+        loadGeneration += 1
+        let generation = loadGeneration
+        playerNode.stop()
+
+        let startFrame = AVAudioFramePosition(target * sampleRate)
+        let remainingFrames = max(0, file.length - startFrame)
+        guard remainingFrames > 0 else {
+            progressOffset = duration
+            currentTime = duration
+            stopProgressUpdates()
+            playbackState = .finished
+            return
+        }
+
+        progressOffset = target
+        playerNode.scheduleSegment(file, startingFrame: startFrame, frameCount: AVAudioFrameCount(min(remainingFrames, AVAudioFramePosition(AVAudioFrameCount.max))), at: nil, completionHandler: { [weak self] in
+            DispatchQueue.main.async {
+                guard let self, self.loadGeneration == generation else { return }
+                self.currentTime = self.duration
+                self.stopProgressUpdates()
+                self.playbackState = .finished
+            }
+        })
+        currentTime = target
+        if wasPlaying {
+            playerNode.play()
+            startProgressUpdates()
+        } else {
+            playbackState = .paused
+        }
+    }
+
+    private func startProgressUpdates() {
+        guard progressTimer == nil else { return }
+        progressTimer = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
+            self?.updateProgress()
+        }
+    }
+
+    private func stopProgressUpdates() {
+        progressTimer?.invalidate()
+        progressTimer = nil
+    }
+
+    private func updateProgress() {
+        guard playbackState == .playing,
+              let nodeTime = playerNode.lastRenderTime,
+              let playerTime = playerNode.playerTime(forNodeTime: nodeTime),
+              playerTime.sampleRate > 0 else { return }
+        let time = progressOffset + Double(playerTime.sampleTime) / playerTime.sampleRate
+        currentTime = min(max(time, 0), duration)
     }
 
     func setSpeed(_ speed: Float) { varispeed.rate = min(max(speed, 0.5), 2.0) }
