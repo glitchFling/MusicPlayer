@@ -245,6 +245,15 @@ struct ContentView: View {
         player.load(previous)
     }
 
+    private func removeSong(_ song: Song) {
+        if player.currentSong?.id == song.id {
+            player.pause()
+        }
+        playHistory.removeAll { $0.id == song.id }
+        selectedSongIDs.remove(song.id)
+        library.remove(song)
+    }
+
     private func randomSong(excluding current: Song?) -> Song? {
         guard !library.songs.isEmpty else { return nil }
         let choices = library.songs.count > 1
@@ -359,7 +368,22 @@ struct ContentView: View {
                     }
                     .foregroundColor(.deckBone)
                     .padding(.vertical, 8)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button(role: .destructive) {
+                            removeSong(song)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                    .contextMenu {
+                        Button(role: .destructive) {
+                            removeSong(song)
+                        } label: {
+                            Label("Remove from Library", systemImage: "trash")
+                        }
+                    }
                     .overlay(Divider().overlay(Color.deckHairline), alignment: .bottom)
+
                 }
                 if isSelecting {
                     HStack {
