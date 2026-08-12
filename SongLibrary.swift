@@ -9,6 +9,7 @@ final class SongLibrary: ObservableObject {
         case accessDenied
         case unsupportedFormat
         case importFailed
+        case exportFailed
 
         var id: String { errorDescription ?? "library-error" }
         var errorDescription: String? {
@@ -16,6 +17,7 @@ final class SongLibrary: ObservableObject {
             case .accessDenied: return "Music file access was denied. Choose the file again to continue."
             case .unsupportedFormat: return "That file could not be read as audio. Try an MP3, M4A, WAV, or AIFF file."
             case .importFailed: return "The music file could not be copied into the library."
+            case .exportFailed: return "The selected songs could not be prepared for sharing."
             }
         }
     }
@@ -64,6 +66,48 @@ final class SongLibrary: ObservableObject {
         } catch {
             lastError = .importFailed
         }
+    }
+
+    nonisolated static func exportArchive(for songs: [Song], named name: String) throws -> URL {
+        let fileManager = FileManager.default
+        let staging = fileManager.temporaryDirectory.appendingPathComponent("SongExport-\(UUID().uuidString)", isDirectory: true)
+        let archiveURL = fileManager.temporaryDirectory.appendingPathComponent(name)
+        do {
+            try fileManager.createDirectory(at: staging, withIntermediateDirectories: true)
+            var usedNames = Set<String>()
+            for song in songs {
+                let base = sanitizedName(song.title)
+                let ext = song.fileURL.pathExtension
+                var candidate = ext.isEmpty ? base : "\(base).\(ext)"
+                var suffix = 2
+                while usedNames.contains(candidate) {
+                    candidate = ext.isEmpty ? "\(base)-\(suffix)" : "\(base)-\(suffix).\(ext)"
+                    suffix += 1
+                }
+                usedNames.insert(candidate)
+                try fileManager.copyItem(at: song.fileURL, to: staging.appendingPathComponent(candidate))
+            }
+            var coordinatorError: NSError?
+            var producedArchive: URL?
+            NSFileCoordinator().coordinate(readingItemAt: staging, options: .forUploading, error: &coordinatorError) { url in
+                try? fileManager.removeItem(at: archiveURL)
+                try? fileManager.copyItem(at: url, to: archiveURL)
+                producedArchive = archiveURL
+            }
+            if let coordinatorError { throw coordinatorError }
+            guard let producedArchive else { throw LibraryError.exportFailed }
+            return producedArchive
+        } catch {
+            try? fileManager.removeItem(at: archiveURL)
+            throw LibraryError.exportFailed
+        }
+    }
+
+    private nonisolated static func sanitizedName(_ name: String) -> String {
+        let invalid = CharacterSet(charactersIn: "/\\:*?\"<>|")
+        let cleaned = name.components(separatedBy: invalid).joined(separator: "-")
+        let trimmed = cleaned.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "Untitled" : trimmed
     }
 
     func remove(_ song: Song) {

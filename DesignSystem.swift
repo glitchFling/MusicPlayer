@@ -1,4 +1,49 @@
 import SwiftUI
+import UIKit
+
+struct ShareSheet: UIViewControllerRepresentable {
+    let items: [Any]
+    let onComplete: (() -> Void)?
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        controller.completionWithItemsHandler = { _, _, _, _ in onComplete?() }
+        return controller
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
+}
+
+struct DeckIconButtonStyle: ButtonStyle {
+    var accent = false
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundColor(accent ? .deckCharcoal : .deckBone)
+            .frame(width: 52, height: 52)
+            .background(accent ? Color.deckBrass : Color.deckGraphite)
+            .clipShape(Circle())
+            .overlay(Circle().stroke(Color.deckHairline, lineWidth: 1))
+            .scaleEffect(configuration.isPressed ? 0.92 : 1)
+    }
+}
+
+struct DeckPanel<Content: View>: View {
+    let content: Content
+
+    init(@ViewBuilder content: () -> Content) { self.content = content() }
+
+    var body: some View {
+        content
+            .padding(16)
+            .background(Color.deckGraphite.opacity(0.92))
+            .overlay(RoundedRectangle(cornerRadius: 22).stroke(Color.deckHairline, lineWidth: 1))
+            .clipShape(RoundedRectangle(cornerRadius: 22))
+            .shadow(color: .black.opacity(0.25), radius: 16, y: 8)
+    }
+}
+
 
 extension Color {
     static let deckCharcoal = Color(red: 0.106, green: 0.098, blue: 0.090)
