@@ -290,7 +290,6 @@ jobs:
             };
           /* End XCConfigurationList section */
 
-            };
             rootObject = FF000000;
           };
           PBXEOF
