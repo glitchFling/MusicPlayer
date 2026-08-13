@@ -104,6 +104,7 @@ jobs:
             AA000008 = {isa = PBXBuildFile; fileRef = BB000008; };
             AA000009 = {isa = PBXBuildFile; fileRef = BB000009; };
             AA000010 = {isa = PBXBuildFile; fileRef = BB000010; };
+            AA000011 = {isa = PBXBuildFile; fileRef = BB000011; };
           /* End PBXBuildFile section */
 
           /* Begin PBXFileReference section */
@@ -117,6 +118,7 @@ jobs:
             BB000008 = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
             BB000009 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
             BB000010 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
+            BB000011 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
             CC000001 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MusicPlayer.app; sourceTree = BUILT_PRODUCTS_DIR; };
           /* End PBXFileReference section */
 
@@ -137,7 +139,7 @@ jobs:
             };
             EE000002 = {
               isa = PBXGroup;
-              children = (BB000001, BB000002, BB000003, BB000004, BB000005, BB000006, BB000007, BB000008, BB000009, BB000010);
+              children = (BB000001, BB000002, BB000003, BB000004, BB000005, BB000006, BB000007, BB000008, BB000009, BB000010, BB000011);
 
               path = MusicPlayerSrc;
               sourceTree = "<group>";
@@ -198,7 +200,7 @@ jobs:
             FF000002 = {
               isa = PBXSourcesBuildPhase;
               buildActionMask = 2147483647;
-              files = (AA000001, AA000002, AA000003, AA000004, AA000005, AA000006, AA000007, AA000009, AA000010);
+              files = (AA000001, AA000002, AA000003, AA000004, AA000005, AA000006, AA000007, AA000009, AA000010, AA000011);
               runOnlyForDeploymentPostprocessing = 0;
             };
           /* End PBXSourcesBuildPhase section */
