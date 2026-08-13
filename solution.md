@@ -14,25 +14,25 @@ Reason: The project 'MusicPlayer' is damaged and cannot be opened due to a parse
 ## Root Cause
 The Xcode project file (`project.pbxproj`) generated in the workflow has a **syntax error in its structure**. The main dictionary object is not properly closed, causing Xcode's JSON/plist parser to fail.
 
-Specifically, in the `.github/workflows/ios-build-ipa.yml` file at line 293, the root dictionary is closed with a single `}` instead of `};`, placing the `rootObject = FF000000;` assignment outside the main dictionary structure.
+Specifically, in the `.github/workflows/ios-build-ipa.yml` file at line 293, the root dictionary is closed with a single `}` instead of `};`, placing the `rootObject = FF000000;` assignment outside the dictionary scope.
 
 ## Solution
 In `.github/workflows/ios-build-ipa.yml`, fix the project file generation step (around line 293) by changing:
 
 ```pbxproj
-            };
-            rootObject = FF000000;
-          }
-          PBXEOF
+          };
+          rootObject = FF000000;
+        }
+        PBXEOF
 ```
 
 To:
 
 ```pbxproj
-            };
-            rootObject = FF000000;
           };
-          PBXEOF
+          rootObject = FF000000;
+        };
+        PBXEOF
 ```
 
 The key change is replacing the final `}` with `};` to properly close the root dictionary object in the plist/JSON structure.
