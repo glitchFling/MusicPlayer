@@ -44,6 +44,21 @@ final class PresetStore: ObservableObject {
         presets = files.filter { $0.pathExtension == "prst" }.compactMap { try? Data(contentsOf: $0) }.compactMap { try? PropertyListDecoder().decode(Preset.self, from: $0) }.sorted { $0.name.localizedCaseInsensitiveCompare($1.name) == .orderedAscending }
     }
 
+    func loadExternalPreset(from url: URL) throws -> Preset {
+        guard url.pathExtension.lowercased() == "prst" else { throw PresetError.invalidFile }
+        let data = try Data(contentsOf: url)
+        return try PropertyListDecoder().decode(Preset.self, from: data)
+    }
+
+    enum PresetError: LocalizedError {
+        case invalidFile
+        var errorDescription: String? {
+            switch self {
+            case .invalidFile: return "That file is not a valid MusicPlayer .prst preset."
+            }
+        }
+    }
+
     func save(_ preset: Preset) throws {
         try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
         let filename = Self.sanitized(preset.name) + ".prst"

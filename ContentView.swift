@@ -140,6 +140,9 @@ struct ContentView: View {
                     .clipShape(RoundedRectangle(cornerRadius: 14))
             }
         }
+        .onOpenURL { url in
+            handlePresetURL(url)
+        }
         .alert("Playback note", isPresented: errorPresented) {
             Button("OK") {
                 library.lastError = nil
@@ -250,6 +253,21 @@ struct ContentView: View {
 
     private var errorMessage: String {
         library.lastError?.localizedDescription ?? player.lastError?.localizedDescription ?? "Something went wrong."
+    }
+
+    private func handlePresetURL(_ url: URL) {
+        guard url.scheme?.lowercased() == "musicplayer" else { return }
+        let rawPath = url.host.map { "/" + $0 + url.path } ?? url.path
+        let presetURL = URL(fileURLWithPath: rawPath.removingPercentEncoding ?? rawPath)
+        do {
+            let hasAccess = presetURL.startAccessingSecurityScopedResource()
+            defer { if hasAccess { presetURL.stopAccessingSecurityScopedResource() } }
+            let preset = try PresetStore.shared.loadExternalPreset(from: presetURL)
+            speed = min(max(preset.speed, 0.5), 2)
+            reverbAmount = min(max(preset.reverb, 0), 100)
+        } catch {
+            library.lastError = .importFailed
+        }
     }
 
     private var header: some View {

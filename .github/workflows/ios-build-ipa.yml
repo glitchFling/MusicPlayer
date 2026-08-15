@@ -70,6 +70,15 @@ jobs:
             <key>LSRequiresIPhoneOS</key><true/>
             <key>UIFileSharingEnabled</key><true/>
             <key>LSSupportsOpeningDocumentsInPlace</key><true/>
+            <key>CFBundleURLTypes</key>
+            <array>
+              <dict>
+                <key>CFBundleTypeRole</key><string>Viewer</string>
+                <key>CFBundleURLName</key><string>com.example.MusicPlayer</string>
+                <key>CFBundleURLSchemes</key>
+                <array><string>musicplayer</string></array>
+              </dict>
+            </array>
             <key>UILaunchScreen</key><dict/>
             <key>UISupportedInterfaceOrientations</key>
             <array>
