@@ -29,7 +29,17 @@ struct PlayerView: View {
         LinearGradient(colors: [Color(red: 0.05, green: 0.10, blue: 0.25), Color(red: 0.25, green: 0.10, blue: 0.38), Color(red: 0.06, green: 0.55, blue: 0.68)], startPoint: .topLeading, endPoint: .bottomTrailing)
     }
     private var backgroundGradient: LinearGradient {
-        LinearGradient(colors: [.deckCharcoal, accent.opacity(0.42), .deckCharcoal], startPoint: .topLeading, endPoint: .bottomTrailing)
+        LinearGradient(
+            stops: [
+                .init(color: accents.palette.background.opacity(0.35), location: 0),
+                .init(color: accents.palette.secondary.opacity(0.72), location: 0.24),
+                .init(color: accents.palette.background, location: 0.54),
+                .init(color: accents.palette.secondary.opacity(0.62), location: 0.8),
+                .init(color: .deckCharcoal, location: 1)
+            ],
+            startPoint: .top,
+            endPoint: .bottom
+        )
     }
 
     var body: some View {

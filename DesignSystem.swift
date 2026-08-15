@@ -60,71 +60,66 @@ enum ArtworkAccent {
 
     static func rgb(for url: URL?) -> (Double, Double, Double)? {
         guard let url, let image = UIImage(contentsOfFile: url.path), let cgImage = image.cgImage else { return nil }
-        let size = 32
+        let size = 48
         var pixels = [UInt8](repeating: 0, count: size * size * 4)
-        guard let context = CGContext(
-            data: &pixels,
-            width: size,
-            height: size,
-            bitsPerComponent: 8,
-            bytesPerRow: size * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return nil }
-        context.interpolationQuality = .low
+        guard let context = CGContext(data: &pixels, width: size, height: size, bitsPerComponent: 8, bytesPerRow: size * 4, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        context.interpolationQuality = .high
         context.draw(cgImage, in: CGRect(x: 0, y: 0, width: size, height: size))
 
-        var buckets = Array(repeating: (count: 0, red: 0.0, green: 0.0, blue: 0.0, saturation: 0.0, brightness: 0.0), count: 24)
+        var candidates: [(score: Double, red: Double, green: Double, blue: Double)] = []
         for index in stride(from: 0, to: pixels.count, by: 4) {
             let red = Double(pixels[index]) / 255
             let green = Double(pixels[index + 1]) / 255
             let blue = Double(pixels[index + 2]) / 255
-            let maxValue = max(red, green, blue)
-            let minValue = min(red, green, blue)
-            let delta = maxValue - minValue
-            let saturation = maxValue == 0 ? 0 : delta / maxValue
-            guard maxValue >= 0.18, saturation >= 0.12 else { continue }
-            var hue: Double
-            if delta == 0 { hue = 0 }
-            else if maxValue == red { hue = ((green - blue) / delta).truncatingRemainder(dividingBy: 6) }
-            else if maxValue == green { hue = (blue - red) / delta + 2 }
-            else { hue = (red - green) / delta + 4 }
-            hue = (hue / 6).truncatingRemainder(dividingBy: 1)
-            if hue < 0 { hue += 1 }
-            let bucketIndex = min(23, max(0, Int(hue * 24)))
-            buckets[bucketIndex].count += 1
-            buckets[bucketIndex].red += red
-            buckets[bucketIndex].green += green
-            buckets[bucketIndex].blue += blue
-            buckets[bucketIndex].saturation += saturation
-            buckets[bucketIndex].brightness += maxValue
+            let maximum = max(red, green, blue)
+            let minimum = min(red, green, blue)
+            let saturation = maximum == 0 ? 0 : (maximum - minimum) / maximum
+            let luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+            guard saturation >= 0.18, luminance >= 0.12, luminance <= 0.78 else { continue }
+            let score = saturation * 0.7 + (1 - abs(luminance - 0.42)) * 0.3
+            candidates.append((score, red, green, blue))
         }
-
-        guard let winner = buckets.max(by: { lhs, rhs in
-            Double(lhs.count) * (lhs.count == 0 ? 0 : lhs.saturation / Double(lhs.count)) <
-            Double(rhs.count) * (rhs.count == 0 ? 0 : rhs.saturation / Double(rhs.count))
-        }), winner.count > 0 else { return nil }
-        let count = Double(winner.count)
-        let red = min(0.9, max(0.35, winner.red / count))
-        let green = min(0.9, max(0.35, winner.green / count))
-        let blue = min(0.9, max(0.35, winner.blue / count))
+        guard !candidates.isEmpty else { return nil }
+        candidates.sort { $0.score > $1.score }
+        let sample = candidates.prefix(max(1, candidates.count / 12))
+        let count = Double(sample.count)
+        let red = sample.reduce(0) { $0 + $1.red } / count
+        let green = sample.reduce(0) { $0 + $1.green } / count
+        let blue = sample.reduce(0) { $0 + $1.blue } / count
         return (red, green, blue)
     }
 }
 
+struct ArtworkPalette {
+    let accent: Color
+    let background: Color
+    let secondary: Color
+}
+
+extension ArtworkPalette {
+    static let fallback = ArtworkPalette(accent: .deckBrass, background: .deckCharcoal, secondary: .deckGraphite)
+}
+
+func artworkPalette(from rgb: (Double, Double, Double)?) -> ArtworkPalette {
+    guard let rgb else { return .fallback }
+    let base = Color(red: rgb.0, green: rgb.1, blue: rgb.2)
+    return ArtworkPalette(accent: base, background: base.opacity(0.52), secondary: base.opacity(0.22))
+}
+
 @MainActor
 final class ArtworkAccentStore: ObservableObject {
-    @Published private(set) var color = ArtworkAccent.fallback
-    private var cache: [UUID: Color] = [:]
+    @Published private(set) var palette = ArtworkPalette.fallback
+    var color: Color { palette.accent }
+    private var cache: [UUID: ArtworkPalette] = [:]
     private var generation = 0
 
     func update(for song: Song?) {
         guard let song else {
-            color = ArtworkAccent.fallback
+            palette = .fallback
             return
         }
         if let cached = cache[song.id] {
-            color = cached
+            palette = cached
             return
         }
         generation += 1
@@ -133,10 +128,10 @@ final class ArtworkAccentStore: ObservableObject {
         Task.detached(priority: .utility) {
             let rgb = ArtworkAccent.rgb(for: artworkURL)
             await MainActor.run {
-                let resolved = rgb.map { Color(red: $0.0, green: $0.1, blue: $0.2) } ?? ArtworkAccent.fallback
+                let resolved = artworkPalette(from: rgb)
                 self.cache[song.id] = resolved
                 guard self.generation == currentGeneration else { return }
-                self.color = resolved
+                self.palette = resolved
             }
         }
     }
