@@ -68,6 +68,8 @@ jobs:
             <key>CFBundleShortVersionString</key><string>${APP_VERSION}</string>
             <key>CFBundleVersion</key><string>${BUILD_NUMBER}</string>
             <key>LSRequiresIPhoneOS</key><true/>
+            <key>UIFileSharingEnabled</key><true/>
+            <key>LSSupportsOpeningDocumentsInPlace</key><true/>
             <key>UILaunchScreen</key><dict/>
             <key>UISupportedInterfaceOrientations</key>
             <array>

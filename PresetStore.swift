@@ -16,10 +16,28 @@ final class PresetStore: ObservableObject {
     private let directory: URL
 
     private init() {
-        let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        directory = support.appendingPathComponent("MusicPlayer", isDirectory: true).appendingPathComponent("Presets", isDirectory: true)
+        let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        directory = documents
+            .appendingPathComponent("MusicPlayer", isDirectory: true)
+            .appendingPathComponent("Presets", isDirectory: true)
+        migratePrivatePresetsIfNeeded()
         reload()
     }
+
+    private func migratePrivatePresetsIfNeeded() {
+        let support = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("MusicPlayer", isDirectory: true)
+            .appendingPathComponent("Presets", isDirectory: true)
+        guard let files = try? fileManager.contentsOfDirectory(at: support, includingPropertiesForKeys: nil) else { return }
+        try? fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
+        for source in files where source.pathExtension == "prst" {
+            let destination = directory.appendingPathComponent(source.lastPathComponent)
+            guard !fileManager.fileExists(atPath: destination.path) else { continue }
+            try? fileManager.copyItem(at: source, to: destination)
+        }
+    }
+
+    func presetsDirectoryURL() -> URL { directory }
 
     func reload() {
         guard let files = try? fileManager.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil) else { presets = []; return }
