@@ -103,13 +103,27 @@ struct PlayerView: View {
     }
 
     private var secondaryControls: some View {
-        HStack(spacing: 10) {
-            Button { playbackMode = nextPlaybackMode() } label: { Label(playbackMode.title, systemImage: playbackMode.icon) }.buttonStyle(DeckButtonStyle(accent: true, accentColor: accent)).accessibilityLabel("Playback mode: \(playbackMode.title)")
-            Menu { Button("Share Current Song") { if let current = player.currentSong { exportSongs([current], nil) } }; Button("Select Songs to Share") { isSelecting = true }; Button("Share All Songs") { exportSongs(library.songs, "SongArchive.zip") } } label: { Label("EXPORT", systemImage: "square.and.arrow.up") }.buttonStyle(DeckButtonStyle(accent: true, accentColor: accent)).disabled(library.songs.isEmpty)
-        }
-        HStack(spacing: 10) {
-            Button("PRESETS") { showingPresets = true }.buttonStyle(DeckButtonStyle(accent: true, accentColor: accent))
-            Button("SAVE PRESET") { presetName = ""; showingSavePreset = true }.buttonStyle(DeckButtonStyle())
+        VStack(spacing: 10) {
+            HStack(spacing: 10) {
+                Button { playbackMode = nextPlaybackMode() } label: { Label(playbackMode.title, systemImage: playbackMode.icon) }
+                    .buttonStyle(DeckButtonStyle(accent: true, accentColor: accent))
+                    .accessibilityLabel("Playback mode: \(playbackMode.title)")
+                Menu {
+                    Button("Share Current Song") { if let current = player.currentSong { exportSongs([current], nil) } }
+                    Button("Select Songs to Share") { isSelecting = true }
+                    Button("Share All Songs") { exportSongs(library.songs, "SongArchive.zip") }
+                } label: {
+                    Label("EXPORT", systemImage: "square.and.arrow.up")
+                }
+                .buttonStyle(DeckButtonStyle(accent: true, accentColor: accent))
+                .disabled(library.songs.isEmpty)
+            }
+            HStack(spacing: 10) {
+                Button("PRESETS") { showingPresets = true }
+                    .buttonStyle(DeckButtonStyle(accent: true, accentColor: accent))
+                Button("SAVE PRESET") { presetName = ""; showingSavePreset = true }
+                    .buttonStyle(DeckButtonStyle())
+            }
         }
     }
 
