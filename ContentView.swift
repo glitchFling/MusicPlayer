@@ -47,6 +47,9 @@ struct ContentView: View {
     @State private var isScrubbing = false
     @State private var scrubTime: TimeInterval = 0
     @State private var showingSettings = false
+    @State private var isImportingAudio = false
+    @State private var importCompleted = 0
+    @State private var importTotal = 0
 
     private var nextPlaybackMode: PlaybackMode {
         guard let index = PlaybackMode.allCases.firstIndex(of: playbackMode) else { return .shuffle }
@@ -95,10 +98,28 @@ struct ContentView: View {
         .fileImporter(isPresented: $showingImporter, allowedContentTypes: [.audio, .mp3, .mpeg4Audio, .wav, .aiff], allowsMultipleSelection: true) { result in
             switch result {
             case .success(let urls):
-                Task { for url in urls { await library.importSong(from: url) } }
+                importTotal = urls.count
+                importCompleted = 0
+                isImportingAudio = !urls.isEmpty
+                Task {
+                    for url in urls {
+                        await library.importSong(from: url)
+                        await MainActor.run { importCompleted += 1 }
+                    }
+                    await MainActor.run { isImportingAudio = false }
+                }
             case .failure: library.lastError = .accessDenied
             }
+        } .disabled(isImportingAudio)
+        .overlay {
+            if isImportingAudio {
+                ZStack { Color.deckCharcoal.opacity(0.82).ignoresSafeArea(); ProgressView().tint(.deckBrass).scaleEffect(1.35) }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Importing audio")
+                    .accessibilityAddTraits(.updatesFrequently)
+            }
         }
+
         .sheet(item: $shareItem) { payload in
             ShareSheet(items: [payload.url]) {
                 try? FileManager.default.removeItem(at: payload.url)
