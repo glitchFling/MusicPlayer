@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @State private var showingUpdates = false
+    @AppStorage("virtuallist_enabled") private var virtualListEnabled = false
 
     var body: some View {
         ZStack {
@@ -21,6 +22,25 @@ struct SettingsView: View {
                     .listRowBackground(Color.deckGraphite)
                 } header: {
                     Text("SYSTEM")
+                }
+
+                Section {
+                    Toggle(isOn: $virtualListEnabled) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Label("VirtualList", systemImage: "list.bullet.indent")
+                            Text("Enable multiple playlist support with sub-playlists.")
+                                .font(.caption)
+                                .foregroundColor(.deckBone.opacity(0.6))
+                        }
+                    }
+                    .tint(.deckBrass)
+                    .foregroundColor(.deckBone)
+                    .listRowBackground(Color.deckGraphite)
+                    .onChange(of: virtualListEnabled) { newValue in
+                        VirtualListStore.shared.isEnabled = newValue
+                    }
+                } header: {
+                    Text("APPLICATIONS")
                 }
             }
             .scrollContentBackground(.hidden)

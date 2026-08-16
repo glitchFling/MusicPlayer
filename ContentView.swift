@@ -27,6 +27,7 @@ struct ContentView: View {
     @StateObject private var player = MusicPlayer()
     @ObservedObject private var library = SongLibrary.shared
     @ObservedObject private var session = SessionModel.shared
+    @ObservedObject private var virtualList = VirtualListStore.shared
     @State private var playbackMode: PlaybackMode = .shuffle
     @State private var playHistory: [Song] = []
     @State private var isSelecting = false
@@ -48,6 +49,9 @@ struct ContentView: View {
     @State private var isScrubbing = false
     @State private var scrubTime: TimeInterval = 0
     @State private var showingSettings = false
+    @State private var showingNewPlaylist = false
+    @State private var newPlaylistName = ""
+    @AppStorage("virtuallist_enabled") private var virtualListEnabled = false
     @State private var isImportingAudio = false
     @State private var importCompleted = 0
     @State private var importTotal = 0
@@ -147,7 +151,12 @@ struct ContentView: View {
         .onOpenURL { url in
             handlePresetURL(url)
         }
-        .onAppear { session.populateFromLibrary(library) }
+        .onAppear { session.populateFromLibrary(library); VirtualListStore.shared.isEnabled = virtualListEnabled }
+        .alert("New Playlist", isPresented: $showingNewPlaylist) {
+            TextField("Playlist name", text: $newPlaylistName)
+            Button("CREATE") { createPlaylist() }
+            Button("CANCEL", role: .cancel) {}
+        }
         .alert("Playback note", isPresented: errorPresented) {
             Button("OK") {
                 library.lastError = nil
@@ -275,6 +284,21 @@ struct ContentView: View {
         }
     }
 
+    private func createPlaylist() {
+        let name = newPlaylistName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        VirtualListStore.shared.createPlaylist(name: name)
+        newPlaylistName = ""
+        showingNewPlaylist = false
+        loadPlaylistSongs()
+    }
+
+    private func loadPlaylistSongs() {
+        guard let playlist = VirtualListStore.shared.currentPlaylist else { return }
+        let songs = VirtualListStore.shared.resolveSongs(playlist.songIDs, from: library)
+        session.replaceAll(with: songs)
+    }
+
     private var header: some View {
         HStack(alignment: .firstTextBaseline) {
             VStack(alignment: .leading, spacing: 4) {
@@ -311,10 +335,12 @@ struct ContentView: View {
 
     private var libraryList: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("SESSION").font(.system(size: 11, weight: .bold, design: .monospaced)).tracking(2).foregroundColor(.deckBone.opacity(0.55))
-            if session.songs.isEmpty {
-                Text("Your deck is empty. Import a local audio file above.").font(.system(.subheadline, design: .serif)).foregroundColor(.deckBone.opacity(0.7))
+            if virtualListEnabled && virtualList.hasPlaylists {
+                playlistNavigation
             } else {
+                Text("SESSION").font(.system(size: 11, weight: .bold, design: .monospaced)).tracking(2).foregroundColor(.deckBone.opacity(0.55))
+            }
+            if session.songs.isEmpty {
                 ForEach(session.songs) { song in
                     Button {
                         if isSelecting {
@@ -378,6 +404,63 @@ struct ContentView: View {
         }
     }
 
+    private var playlistNavigation: some View {
+        VStack(spacing: 8) {
+            HStack(spacing: 12) {
+                Button { virtualList.moveToPrevious(); loadPlaylistSongs() } label: {
+                    Image(systemName: "chevron.left")
+                        .font(.system(size: 14, weight: .bold))
+                }
+                .buttonStyle(DeckIconButtonStyle())
+                .frame(width: 36, height: 36)
+                .accessibilityLabel("Previous playlist")
+
+                VStack(spacing: 2) {
+                    Text("PLAYLIST").font(.system(size: 11, weight: .bold, design: .monospaced)).tracking(2).foregroundColor(.deckBone.opacity(0.55))
+                    if let playlist = virtualList.currentPlaylist {
+                        Text(playlist.name)
+                            .font(.system(.body, design: .serif))
+                            .foregroundColor(.deckBone)
+                            .lineLimit(1)
+                        Text("\(playlist.songIDs.count) songs")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.deckBone.opacity(0.55))
+                    }
+                }
+                .frame(maxWidth: .infinity)
+
+                Button { virtualList.moveToNext(); loadPlaylistSongs() } label: {
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 14, weight: .bold))
+                }
+                .buttonStyle(DeckIconButtonStyle())
+                .frame(width: 36, height: 36)
+                .accessibilityLabel("Next playlist")
+            }
+
+            if virtualListEnabled {
+                HStack(spacing: 10) {
+                    Button("NEW PLAYLIST") { showingNewPlaylist = true }
+                        .buttonStyle(DeckButtonStyle())
+                    if virtualList.hasPlaylists {
+                        Button("DELETE") {
+                            if let playlist = virtualList.currentPlaylist {
+                                session.clear()
+                                virtualList.deletePlaylist(playlist.id)
+                            }
+                        }
+                        .buttonStyle(DeckButtonStyle(accent: true, accentColor: .deckEmber))
+                    }
+                }
+            }
+        }
+    }
+
+    private func loadPlaylistSongs() {
+        guard let playlist = virtualList.currentPlaylist else { return }
+        let songs = virtualList.resolveSongs(playlist.songIDs, from: library)
+        session.replaceAll(with: songs)
+    }
 }
 
 struct ContentView_Previews: PreviewProvider {
