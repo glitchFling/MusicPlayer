@@ -26,6 +26,7 @@ enum PlaybackMode: String, CaseIterable {
 struct ContentView: View {
     @StateObject private var player = MusicPlayer()
     @StateObject private var library = SongLibrary()
+    @StateObject private var session = SessionModel()
     @State private var playbackMode: PlaybackMode = .shuffle
     @State private var playHistory: [Song] = []
     @State private var isSelecting = false
@@ -40,7 +41,7 @@ struct ContentView: View {
     }
 
     private var selectedSongs: [Song] {
-        library.songs.filter { selectedSongIDs.contains($0.id) }
+        session.songs.filter { selectedSongIDs.contains($0.id) }
     }
     @State private var reverbAmount: Float = 0
     @State private var showingImporter = false
@@ -68,7 +69,7 @@ struct ContentView: View {
                         NavigationLink {
                             PlayerView(
                                 player: player,
-                                library: library,
+                                session: session,
                                 playbackMode: $playbackMode,
                                 speed: $speed,
                                 reverbAmount: $reverbAmount,
@@ -104,7 +105,10 @@ struct ContentView: View {
                 Task {
                     for url in urls {
                         await library.importSong(from: url)
-                        await MainActor.run { importCompleted += 1 }
+                        await MainActor.run {
+                            if let last = library.songs.first { session.addToSession(last) }
+                            importCompleted += 1
+                        }
                     }
                     await MainActor.run { isImportingAudio = false }
                 }
@@ -143,6 +147,7 @@ struct ContentView: View {
         .onOpenURL { url in
             handlePresetURL(url)
         }
+        .onAppear { session.populateFromLibrary(library) }
         .alert("Playback note", isPresented: errorPresented) {
             Button("OK") {
                 library.lastError = nil
@@ -193,8 +198,8 @@ struct ContentView: View {
         switch playbackMode {
         case .shuffle: playRandomSong()
         case .repeatOne, .repeatAll:
-            guard let index = library.songs.firstIndex(where: { $0.id == current.id }) else { return }
-            player.load(library.songs[(index + 1) % library.songs.count])
+            guard let index = session.songs.firstIndex(where: { $0.id == current.id }) else { return }
+            player.load(session.songs[(index + 1) % session.songs.count])
         }
     }
 
@@ -210,29 +215,29 @@ struct ContentView: View {
         }
         playHistory.removeAll { $0.id == song.id }
         selectedSongIDs.remove(song.id)
-        library.remove(song)
+        session.removeFromSession(song)
     }
 
     private func randomSong(excluding current: Song?) -> Song? {
-        guard !library.songs.isEmpty else { return nil }
-        let choices = library.songs.count > 1
-            ? library.songs.filter { $0.id != current?.id }
-            : library.songs
+        guard !session.songs.isEmpty else { return nil }
+        let choices = session.songs.count > 1
+            ? session.songs.filter { $0.id != current?.id }
+            : session.songs
         return choices.randomElement()
     }
 
     private func advancePlayback() {
-        guard !library.songs.isEmpty else { return }
+        guard !session.songs.isEmpty else { return }
         switch playbackMode {
         case .repeatOne:
             if let current = player.currentSong { player.load(current) }
         case .repeatAll:
             guard let current = player.currentSong,
-                  let index = library.songs.firstIndex(where: { $0.id == current.id }) else {
-                if let first = library.songs.first { player.load(first) }
+                  let index = session.songs.firstIndex(where: { $0.id == current.id }) else {
+                if let first = session.songs.first { player.load(first) }
                 return
             }
-            player.load(library.songs[(index + 1) % library.songs.count])
+            player.load(session.songs[(index + 1) % session.songs.count])
         case .shuffle:
             if let song = randomSong(excluding: player.currentSong) { player.load(song) }
         }
@@ -283,7 +288,7 @@ struct ContentView: View {
             .buttonStyle(DeckIconButtonStyle())
             .frame(width: 42, height: 42)
             .accessibilityLabel("Settings")
-            Text("\(library.songs.count, specifier: "%02d") TAPES").font(.system(size: 11, design: .monospaced)).foregroundColor(.deckBone.opacity(0.6))
+            Text("\(session.songs.count, specifier: "%02d") TAPES").font(.system(size: 11, design: .monospaced)).foregroundColor(.deckBone.opacity(0.6))
 
         }
     }
@@ -306,11 +311,11 @@ struct ContentView: View {
 
     private var libraryList: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("LIBRARY").font(.system(size: 11, weight: .bold, design: .monospaced)).tracking(2).foregroundColor(.deckBone.opacity(0.55))
-            if library.songs.isEmpty {
+            Text("SESSION").font(.system(size: 11, weight: .bold, design: .monospaced)).tracking(2).foregroundColor(.deckBone.opacity(0.55))
+            if session.songs.isEmpty {
                 Text("Your deck is empty. Import a local audio file above.").font(.system(.subheadline, design: .serif)).foregroundColor(.deckBone.opacity(0.7))
             } else {
-                ForEach(library.songs) { song in
+                ForEach(session.songs) { song in
                     Button {
                         if isSelecting {
                             if selectedSongIDs.contains(song.id) { selectedSongIDs.remove(song.id) } else { selectedSongIDs.insert(song.id) }

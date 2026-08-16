@@ -2,7 +2,7 @@ import SwiftUI
 
 struct PlayerView: View {
     @ObservedObject var player: MusicPlayer
-    @ObservedObject var library: SongLibrary
+    @ObservedObject var session: SessionModel
     @Binding var playbackMode: PlaybackMode
     @Binding var speed: Float
     @Binding var reverbAmount: Float
@@ -121,12 +121,12 @@ struct PlayerView: View {
                 Menu {
                     Button("Share Current Song") { if let current = player.currentSong { exportSongs([current], nil) } }
                     Button("Select Songs to Share") { isSelecting = true }
-                    Button("Share All Songs") { exportSongs(library.songs, "SongArchive.zip") }
+                    Button("Share All Songs") { exportSongs(session.songs, "SongArchive.zip") }
                 } label: {
                     Label("EXPORT", systemImage: "square.and.arrow.up")
                 }
                 .buttonStyle(DeckButtonStyle(accent: true, accentColor: accent))
-                .disabled(library.songs.isEmpty)
+                .disabled(session.songs.isEmpty)
             }
             HStack(spacing: 10) {
                 Button("PRESETS") { showingPresets = true }
