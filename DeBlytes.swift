@@ -93,8 +93,9 @@ final class DeBlytesService: ObservableObject {
                     try handle.write(Data(chunk))
                     offset += Int(chunkSize)
 
+                    let progress = offset
                     await MainActor.run {
-                        self.cacheProgress[songID] = Double(offset) / Double(totalSize)
+                        self.cacheProgress[songID] = Double(progress) / Double(totalSize)
                     }
 
                     // Rate limit: sleep 1 second between chunks

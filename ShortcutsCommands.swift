@@ -7,7 +7,7 @@ struct PlaySongIntent: AppIntent {
     static var title: LocalizedStringResource = "Play Song"
     static var description = IntentDescription("Adds an audio file to your current session if it isn't already stored.")
 
-    @Parameter(title: "Audio File", supportedType: .fileURL)
+    @Parameter(title: "Audio File", supportedContentTypes: [.fileURL])
     var audioFile: IntentFile
 
     @MainActor

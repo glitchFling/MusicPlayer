@@ -21,8 +21,6 @@ struct SuperPreset: Identifiable, Codable, Equatable {
     let currentTime: TimeInterval
     let songs: [SuperPresetSong]
     let timestamp: Date
-
-    var id: UUID { self.id }
 }
 
 // MARK: - Error type

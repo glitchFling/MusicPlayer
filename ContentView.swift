@@ -489,12 +489,7 @@ struct ContentView: View {
         }
     }
 
-    private func loadPlaylistSongs() {
-        guard let playlist = virtualList.currentPlaylist else { return }
-        let songs = virtualList.resolveSongs(playlist.songIDs, from: library)
-        session.replaceAll(with: songs)
     }
-}
 
 struct ContentView_Previews: PreviewProvider {
     static var previews: some View { ContentView() }
