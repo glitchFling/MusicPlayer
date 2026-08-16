@@ -118,6 +118,7 @@ jobs:
             AA000011 = {isa = PBXBuildFile; fileRef = BB000011; };
             AA000012 = {isa = PBXBuildFile; fileRef = BB000012; };
             AA000013 = {isa = PBXBuildFile; fileRef = BB000013; };
+            AA000014 = {isa = PBXBuildFile; fileRef = BB000014; };
           /* End PBXBuildFile section */
 
           /* Begin PBXFileReference section */
@@ -134,6 +135,7 @@ jobs:
             BB000011 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
             BB000012 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresetStore.swift; sourceTree = "<group>"; };
             BB000013 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionModel.swift; sourceTree = "<group>"; };
+            BB000014 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuperPresetStore.swift; sourceTree = "<group>"; };
             CC000001 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MusicPlayer.app; sourceTree = BUILT_PRODUCTS_DIR; };
           /* End PBXFileReference section */
 
@@ -154,7 +156,7 @@ jobs:
             };
             EE000002 = {
               isa = PBXGroup;
-              children = (BB000001, BB000002, BB000003, BB000004, BB000005, BB000006, BB000007, BB000008, BB000009, BB000010, BB000011, BB000012, BB000013);
+              children = (BB000001, BB000002, BB000003, BB000004, BB000005, BB000006, BB000007, BB000008, BB000009, BB000010, BB000011, BB000012, BB000013, BB000014);
 
               path = MusicPlayerSrc;
               sourceTree = "<group>";
@@ -215,7 +217,7 @@ jobs:
             FF000002 = {
               isa = PBXSourcesBuildPhase;
               buildActionMask = 2147483647;
-              files = (AA000001, AA000002, AA000003, AA000004, AA000005, AA000006, AA000007, AA000009, AA000010, AA000011, AA000012, AA000013);
+              files = (AA000001, AA000002, AA000003, AA000004, AA000005, AA000006, AA000007, AA000009, AA000010, AA000011, AA000012, AA000013, AA000014);
               runOnlyForDeploymentPostprocessing = 0;
             };
           /* End PBXSourcesBuildPhase section */

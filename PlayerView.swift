@@ -22,6 +22,12 @@ struct PlayerView: View {
     @State private var showingSavePreset = false
     @State private var overwritePreset: PresetStore.Preset?
     @State private var presetError: String?
+    @State private var showingSuperPresets = false
+    @State private var showingSaveSuperPreset = false
+    @State private var superPresetName = ""
+    @State private var applyingSuperPreset: SuperPreset?
+    @State private var showSuperPresetWarning = false
+    @State private var superPresetError: String?
 
     private var isPlaying: Bool { player.playbackState == .playing }
     private var accent: Color { accents.color }
@@ -76,6 +82,21 @@ struct PlayerView: View {
         .alert("Preset unavailable", isPresented: Binding(get: { presetError != nil }, set: { if !$0 { presetError = nil } })) {
             Button("OK") { presetError = nil }
         } message: { Text(presetError ?? "") }
+        .alert("Save Super Preset", isPresented: $showingSaveSuperPreset) {
+            TextField("Super Preset name", text: $superPresetName)
+            Button("SAVE") { saveSuperPreset() }
+            Button("CANCEL", role: .cancel) {}
+        }
+        .alert("Apply Super Preset?", isPresented: $showSuperPresetWarning) {
+            Button("APPLY", role: .destructive) { confirmApplySuperPreset() }
+            Button("CANCEL", role: .cancel) { applyingSuperPreset = nil }
+        } message: {
+            Text("WARNING: applying this .sprst will overwrite your current playlist.")
+        }
+        .alert("Super Preset error", isPresented: Binding(get: { superPresetError != nil }, set: { if !$0 { superPresetError = nil } })) {
+            Button("OK") { superPresetError = nil }
+        } message: { Text(superPresetError ?? "") }
+        .sheet(isPresented: $showingSuperPresets) { superPresetsSheet }
     }
 
     private var artworkAndDetails: some View {
@@ -134,6 +155,12 @@ struct PlayerView: View {
                 Button("SAVE PRESET") { presetName = ""; showingSavePreset = true }
                     .buttonStyle(DeckButtonStyle())
             }
+            HStack(spacing: 10) {
+                Button("SUPER PRESETS") { showingSuperPresets = true }
+                    .buttonStyle(DeckButtonStyle(accent: true, accentColor: accent))
+                Button("SAVE SUPER PRESET") { superPresetName = ""; showingSaveSuperPreset = true }
+                    .buttonStyle(DeckButtonStyle())
+            }
         }
     }
 
@@ -158,6 +185,92 @@ struct PlayerView: View {
     private func writePreset(_ preset: PresetStore.Preset) { do { try PresetStore.shared.save(preset); showingPresets = true; overwritePreset = nil } catch { presetError = error.localizedDescription } }
     private func apply(_ preset: PresetStore.Preset) { speed = preset.speed; reverbAmount = preset.reverb; showingPresets = false }
     private func formatTime(_ time: TimeInterval) -> String { guard time.isFinite else { return "0:00" }; let total = max(0, Int(time.rounded(.down))); return "\(total / 60):\(String(format: "%02d", total % 60))" }
+
+    private func saveSuperPreset() {
+        let name = superPresetName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty else { return }
+        do {
+            try SuperPresetStore.shared.save(
+                name: name,
+                speed: speed,
+                reverb: reverbAmount,
+                currentSong: player.currentSong,
+                currentTime: player.currentTime,
+                sessionSongs: session.songs
+            )
+            showingSaveSuperPreset = false
+            showingSuperPresets = true
+        } catch { superPresetError = error.localizedDescription }
+    }
+
+    private func applySuperPreset(_ preset: SuperPreset) {
+        applyingSuperPreset = preset
+        showSuperPresetWarning = true
+    }
+
+    private func confirmApplySuperPreset() {
+        guard let preset = applyingSuperPreset else { return }
+        do {
+            try SuperPresetStore.shared.apply(preset, to: session, player: player, speed: &speed, reverb: &reverbAmount)
+            applyingSuperPreset = nil
+            showingSuperPresets = false
+        } catch {
+            superPresetError = error.localizedDescription
+            applyingSuperPreset = nil
+        }
+    }
+
+    private var superPresetsSheet: some View {
+        NavigationStack {
+            ZStack {
+                Color.deckCharcoal.ignoresSafeArea()
+                if SuperPresetStore.shared.presets.isEmpty {
+                    VStack(spacing: 12) {
+                        Text("No super presets saved yet.")
+                            .font(.system(.headline, design: .serif))
+                            .foregroundColor(.deckBone.opacity(0.7))
+                    }
+                } else {
+                    List {
+                        ForEach(SuperPresetStore.shared.presets) { preset in
+                            Button { applySuperPreset(preset) } label: {
+                                HStack {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        Text(preset.name)
+                                            .font(.system(.body, design: .serif))
+                                            .foregroundColor(.deckBone)
+                                        Text("\(preset.songs.count) songs \u{00B7} \(preset.speed, specifier: "%.2fx") \u{00B7} \(preset.reverb, specifier: "%.0f%%") reverb")
+                                            .font(.system(size: 10, design: .monospaced))
+                                            .foregroundColor(.deckBone.opacity(0.55))
+                                    }
+                                    Spacer()
+                                    Image(systemName: "chevron.right")
+                                        .font(.caption)
+                                        .foregroundColor(.deckBone.opacity(0.35))
+                                }
+                            }
+                            .listRowBackground(Color.deckGraphite)
+                            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                                Button(role: .destructive) {
+                                    try? SuperPresetStore.shared.delete(preset)
+                                } label: {
+                                    Label("Delete", systemImage: "trash")
+                                }
+                            }
+                        }
+                    }
+                    .scrollContentBackground(.hidden)
+                }
+            }
+            .navigationTitle("Super Presets")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("DONE") { showingSuperPresets = false }
+                }
+            }
+            .task { SuperPresetStore.shared.reload() }
+        }
+    }
 }
 
 struct GradientIconButtonStyle: ButtonStyle {
