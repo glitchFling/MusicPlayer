@@ -46,6 +46,7 @@ struct ContentView: View {
     }
     @State private var reverbAmount: Float = 0
     @State private var showingImporter = false
+    @State private var showingZipImporter = false
     @State private var isScrubbing = false
     @State private var scrubTime: TimeInterval = 0
     @State private var showingSettings = false
@@ -94,6 +95,11 @@ struct ContentView: View {
                             Label("IMPORT MUSIC", systemImage: "tray.and.arrow.up.fill")
                         }
                         .buttonStyle(DeckButtonStyle())
+                        Button { showingZipImporter = true } label: {
+                            Label("IMPORT ZIP", systemImage: "shippingbox")
+                        }
+                        .buttonStyle(DeckButtonStyle(accent: true))
+                        .disabled(isImportingAudio)
                         libraryList
                     }
                     .padding(24)
@@ -119,6 +125,33 @@ struct ContentView: View {
             case .failure: library.lastError = .accessDenied
             }
         } .disabled(isImportingAudio)
+        .fileImporter(isPresented: $showingZipImporter, allowedContentTypes: [.archive], allowsMultipleSelection: false) { result in
+            switch result {
+            case .success(let urls):
+                guard let zipURL = urls.first else { return }
+                importTotal = 1
+                importCompleted = 0
+                isImportingAudio = true
+                Task {
+                    do {
+                        let hasAccess = zipURL.startAccessingSecurityScopedResource()
+                        defer { if hasAccess { zipURL.stopAccessingSecurityScopedResource() } }
+                        let extracted = try SuitcaseService.extractAudio(from: zipURL)
+                        for extractedURL in extracted {
+                            await library.importSong(from: extractedURL)
+                            await MainActor.run {
+                                if let last = library.songs.first { session.addToSession(last) }
+                            }
+                        }
+                        if extracted.isEmpty { await MainActor.run { library.lastError = .importFailed } }
+                    } catch {
+                        await MainActor.run { library.lastError = .importFailed }
+                    }
+                    await MainActor.run { isImportingAudio = false }
+                }
+            case .failure: library.lastError = .accessDenied
+            }
+        }
         .overlay {
             if isImportingAudio {
                 ZStack { Color.deckCharcoal.opacity(0.82).ignoresSafeArea(); ProgressView().tint(.deckBrass).scaleEffect(1.35) }
