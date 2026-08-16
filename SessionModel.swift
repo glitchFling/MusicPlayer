@@ -3,6 +3,8 @@ import Foundation
 
 @MainActor
 final class SessionModel: ObservableObject {
+    static let shared = SessionModel()
+
     @Published private(set) var songs: [Song] = []
 
     func contains(_ song: Song) -> Bool {

@@ -25,8 +25,8 @@ enum PlaybackMode: String, CaseIterable {
 
 struct ContentView: View {
     @StateObject private var player = MusicPlayer()
-    @StateObject private var library = SongLibrary()
-    @StateObject private var session = SessionModel()
+    @ObservedObject private var library = SongLibrary.shared
+    @ObservedObject private var session = SessionModel.shared
     @State private var playbackMode: PlaybackMode = .shuffle
     @State private var playHistory: [Song] = []
     @State private var isSelecting = false

@@ -5,6 +5,8 @@ import UIKit
 
 @MainActor
 final class SongLibrary: ObservableObject {
+    static let shared = SongLibrary()
+
     enum LibraryError: LocalizedError, Identifiable {
         case accessDenied
         case unsupportedFormat
