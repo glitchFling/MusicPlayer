@@ -7,17 +7,25 @@ struct PlaySongIntent: AppIntent {
     static var title: LocalizedStringResource = "Play Song"
     static var description = IntentDescription("Adds an audio file to your current session if it isn't already stored.")
 
-    @Parameter(title: "Audio File", supportedContentTypes: [.fileURL])
+    @Parameter(title: "Audio File")
     var audioFile: IntentFile
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        guard let fileURL = audioFile.fileURL else {
-            return .result()
-        }
-
         let library = SongLibrary.shared
-        await library.importSong(from: fileURL)
+
+        // Copy file data to a stable temp URL before importing
+        if let data = audioFile.data {
+            let ext = audioFile.fileURL?.pathExtension ?? "mp3"
+            let tempURL = FileManager.default.temporaryDirectory
+                .appendingPathComponent(UUID().uuidString)
+                .appendingPathExtension(ext)
+            try data.write(to: tempURL)
+            await library.importSong(from: tempURL)
+            try? FileManager.default.removeItem(at: tempURL)
+        } else if let fileURL = audioFile.fileURL {
+            await library.importSong(from: fileURL)
+        }
 
         if let song = library.songs.first(where: { !SessionModel.shared.contains($0) }) {
             SessionModel.shared.addToSession(song)
@@ -36,10 +44,9 @@ struct ClearAllSongsIntent: AppIntent {
     static var description = IntentDescription("Clears all songs from your current session.")
 
     @MainActor
-    func perform() async throws -> some ProvidesDialog {
+    func perform() async throws -> some IntentResult {
         try await requestConfirmation(
-            result: .result(),
-            dialog: "This will Clear all your songs in the Session, are you sure you want to Clear all songs?"
+            dialog: IntentDialog("This will Clear all your songs in the Session, are you sure you want to Clear all songs?")
         )
 
         SessionModel.shared.clear()
