@@ -55,11 +55,11 @@ struct SuitcaseService {
 
         var extracted: [URL] = []
         for entry in audioEntries {
-            let entryData = try extractEntry(entry, from: data)
+            guard let entryData = try? extractEntry(entry, from: data) else { continue }
             let safeName = sanitized(entry.fileName)
             let targetURL = tempDir.appendingPathComponent(safeName)
-            try FileManager.default.createDirectory(at: targetURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try entryData.write(to: targetURL, options: .atomic)
+            try? FileManager.default.createDirectory(at: targetURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            try? entryData.write(to: targetURL, options: .atomic)
             extracted.append(targetURL)
         }
         return extracted
@@ -169,12 +169,12 @@ struct SuitcaseService {
     }
 
     /// Decompress raw deflate (RFC 1951) using Apple's Compression framework.
-    /// Wraps the data in a zlib header (0x78 0x01) so COMPRESSION_ZLIB can handle it.
+    /// Wraps the data in a zlib header + footer so COMPRESSION_ZLIB can handle it.
     private static func decompressDeflate(_ data: Data, uncompressedSize: Int) throws -> Data {
-        // Prepend minimal zlib header (deflate, window=512) so we can use COMPRESSION_ZLIB
+        // Prepend minimal zlib header (deflate, window=512)
         var zlibData = Data([0x78, 0x01])
         zlibData.append(data)
-        // Append dummy adler32 (4 bytes) — decoder reads it but we don't compute it
+        // Append dummy adler32 — decoder expects exactly 4 bytes after deflate stream
         zlibData.append(contentsOf: [0x00, 0x00, 0x00, 0x00])
 
         var result = Data(count: uncompressedSize)
