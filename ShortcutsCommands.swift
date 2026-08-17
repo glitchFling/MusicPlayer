@@ -15,17 +15,14 @@ struct PlaySongIntent: AppIntent {
         let library = SongLibrary.shared
 
         // Copy file data to a stable temp URL before importing
-        if let data = audioFile.data {
-            let ext = audioFile.fileURL?.pathExtension ?? "mp3"
-            let tempURL = FileManager.default.temporaryDirectory
-                .appendingPathComponent(UUID().uuidString)
-                .appendingPathExtension(ext)
-            try data.write(to: tempURL)
-            await library.importSong(from: tempURL)
-            try? FileManager.default.removeItem(at: tempURL)
-        } else if let fileURL = audioFile.fileURL {
-            await library.importSong(from: fileURL)
-        }
+        let data = audioFile.data
+        let ext = audioFile.fileURL?.pathExtension ?? "mp3"
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension(ext)
+        try data.write(to: tempURL)
+        await library.importSong(from: tempURL)
+        try? FileManager.default.removeItem(at: tempURL)
 
         if let song = library.songs.first(where: { !SessionModel.shared.contains($0) }) {
             SessionModel.shared.addToSession(song)
@@ -46,6 +43,7 @@ struct ClearAllSongsIntent: AppIntent {
     @MainActor
     func perform() async throws -> some IntentResult {
         try await requestConfirmation(
+            result: .result(),
             dialog: IntentDialog("This will Clear all your songs in the Session, are you sure you want to Clear all songs?")
         )
 
