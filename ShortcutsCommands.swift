@@ -42,13 +42,8 @@ struct ClearAllSongsIntent: AppIntent {
 
     @MainActor
     func perform() async throws -> some IntentResult {
-        try await requestConfirmation(
-            result: .result(),
-            dialog: IntentDialog("This will Clear all your songs in the Session, are you sure you want to Clear all songs?")
-        )
-
+        try await requestConfirmation()
         SessionModel.shared.clear()
-
         return .result(dialog: "All songs cleared.")
     }
 }
