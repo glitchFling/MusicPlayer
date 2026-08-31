@@ -120,11 +120,10 @@ struct ContentView: View {
                         if ext == "zip" {
                             await importZIP(url)
                         } else {
-                            await library.importSong(from: url)
-                            await MainActor.run {
-                                if let last = library.songs.first { session.addToSession(last) }
-                                importCompleted += 1
+                            if let song = await library.importSong(from: url) {
+                                session.addToSession(song)
                             }
+                            importCompleted += 1
                         }
                     }
                     await MainActor.run { isImportingAudio = false }
@@ -318,11 +317,11 @@ struct ContentView: View {
             defer { if hasAccess { zipURL.stopAccessingSecurityScopedResource() } }
             let extracted = try SuitcaseService.extractAudio(from: zipURL)
             for extractedURL in extracted {
-                await library.importSong(from: extractedURL)
-                await MainActor.run {
-                    if let last = library.songs.first { session.addToSession(last) }
+                if let song = await library.importSong(from: extractedURL) {
+                    await MainActor.run { session.addToSession(song) }
                 }
             }
+            await MainActor.run { importCompleted += extracted.count }
         } catch {
             await MainActor.run { library.lastError = .importFailed }
         }

@@ -40,13 +40,15 @@ public final class SongLibrary: ObservableObject {
         loadManifest()
     }
 
-    public func importSong(from pickedURL: URL) async {
+    /// Imports a song and returns the newly-created `Song`, or `nil` on failure.
+    @discardableResult
+    public func importSong(from pickedURL: URL) async -> Song? {
         let hasAccess = pickedURL.startAccessingSecurityScopedResource()
         defer { if hasAccess { pickedURL.stopAccessingSecurityScopedResource() } }
-        guard hasAccess else { lastError = .accessDenied; return }
+        guard hasAccess else { lastError = .accessDenied; return nil }
 
         do { _ = try AVAudioFile(forReading: pickedURL) }
-        catch { lastError = .unsupportedFormat; return }
+        catch { lastError = .unsupportedFormat; return nil }
 
         do {
             try fileManager.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -63,10 +65,13 @@ public final class SongLibrary: ObservableObject {
             let artworkData = try? await artworkItem?.load(.dataValue)
             let artworkURL = cacheArtwork(artworkData ?? nil, id: id)
 
-            songs.insert(Song(id: id, title: pickedURL.deletingPathExtension().lastPathComponent, artist: artist ?? nil, fileURL: destination, artworkURL: artworkURL), at: 0)
+            let song = Song(id: id, title: pickedURL.deletingPathExtension().lastPathComponent, artist: artist ?? nil, fileURL: destination, artworkURL: artworkURL)
+            songs.insert(song, at: 0)
             persist()
+            return song
         } catch {
             lastError = .importFailed
+            return nil
         }
     }
 
