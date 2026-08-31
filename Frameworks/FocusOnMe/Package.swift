@@ -5,7 +5,7 @@ let package = Package(
     name: "FocusOnMe",
     platforms: [.iOS(.v16)],
     products: [
-        .library(name: "FocusOnMe", targets: ["FocusOnMe"])
+        .library(name: "FocusOnMe", type: .dynamic, targets: ["FocusOnMe"])
     ],
     targets: [
         .target(name: "FocusOnMe")

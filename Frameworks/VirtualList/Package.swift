@@ -5,7 +5,7 @@ let package = Package(
     name: "VirtualList",
     platforms: [.iOS(.v16)],
     products: [
-        .library(name: "VirtualList", targets: ["VirtualList"])
+        .library(name: "VirtualList", type: .dynamic, targets: ["VirtualList"])
     ],
     dependencies: [
         .package(path: "../Core")

@@ -5,7 +5,7 @@ let package = Package(
     name: "DeBlytes",
     platforms: [.iOS(.v16)],
     products: [
-        .library(name: "DeBlytes", targets: ["DeBlytes"])
+        .library(name: "DeBlytes", type: .dynamic, targets: ["DeBlytes"])
     ],
     dependencies: [
         .package(path: "../Core")

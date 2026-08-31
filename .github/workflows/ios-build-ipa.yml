@@ -42,10 +42,13 @@ jobs:
           ls MusicPlayerSrc/
 
       # 1b. Build each lib framework from its Swift package.
-      #     Produces dynamic .framework bundles in DerivedData/Build/Products/Release-iphoneos/
+      #     Produces dynamic .framework bundles and copies them into the
+      #     app's product directory so the linker can find them.
       - name: Build lib frameworks
         run: |
           ROOT="$PWD"
+          PROD="$ROOT/DerivedData/Build/Products/Release-iphoneos"
+          mkdir -p "$PROD"
           for fw in Core DeBlytes FocusOnMe BetterMusic Suitcase VirtualList; do
             echo "=== Building $fw ==="
             (cd "Frameworks/$fw" && xcodebuild \
@@ -55,8 +58,20 @@ jobs:
               -configuration Release \
               build)
           done
-          echo "Built frameworks:"
-          ls "$ROOT/DerivedData/Build/Products/Release-iphoneos/" | grep -i framework || true
+          echo "=== Locating built frameworks ==="
+          find "$ROOT/DerivedData" -name "*.framework" -maxdepth 8 -print
+          # Defensively copy each built framework into the app product dir.
+          for fw in Core DeBlytes FocusOnMe BetterMusic Suitcase VirtualList; do
+            SRC=$(find "$ROOT/DerivedData" -name "$fw.framework" -type d -maxdepth 8 | head -1)
+            if [ -n "$SRC" ]; then
+              cp -R "$SRC" "$PROD/"
+              echo "Copied $fw.framework -> $PROD"
+            else
+              echo "WARNING: $fw.framework not found on disk"
+            fi
+          done
+          echo "=== Product dir frameworks ==="
+          ls "$PROD"
 
       # 2. Write Info.plist
       - name: Create Info.plist
