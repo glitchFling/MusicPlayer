@@ -369,7 +369,17 @@ struct ContentView: View {
                 Text("SESSION").font(.system(size: 11, weight: .bold, design: .monospaced)).tracking(2).foregroundColor(.deckBone.opacity(0.55))
             }
             if session.songs.isEmpty {
-                ForEach(session.songs) { song in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("No tapes in the session yet.")
+                        .font(.system(size: 12, design: .monospaced))
+                        .foregroundColor(.deckBone.opacity(0.5))
+                    Text("Import music or a ZIP above to get started.")
+                        .font(.system(size: 11, design: .monospaced))
+                        .foregroundColor(.deckBone.opacity(0.35))
+                }
+                .padding(.vertical, 12)
+            }
+            ForEach(session.songs) { song in
                     Button {
                         if isSelecting {
                             if selectedSongIDs.contains(song.id) { selectedSongIDs.remove(song.id) } else { selectedSongIDs.insert(song.id) }
@@ -410,7 +420,6 @@ struct ContentView: View {
                         }
                     }
                     .overlay(Divider().overlay(Color.deckHairline), alignment: .bottom)
-
                 }
                 if isSelecting {
                     HStack {
