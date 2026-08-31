@@ -1,0 +1,469 @@
+name: iOS Build & Export Unsigned IPA
+
+on:
+  push:
+    branches: [ "**" ]
+    tags: [ "v*.*.*" ]
+  pull_request:
+    branches: [ "**" ]
+
+permissions:
+  contents: read
+
+
+jobs:
+  build:
+    permissions:
+      contents: write
+    runs-on: macos-14
+    env:
+      CODE_SIGNING_ALLOWED: NO
+      CODE_SIGNING_REQUIRED: NO
+      CODE_SIGN_IDENTITY: ""
+      APP_VERSION: ${{ startsWith(github.ref, 'refs/tags/v') && github.ref_name || '1.0' }}
+      BUILD_NUMBER: ${{ github.run_number }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify Xcode version
+        run: |
+          xcode-select -p
+          xcodebuild -version
+
+      # 1. Collect Swift sources into MusicPlayerSrc/
+      - name: Collect Swift sources
+        run: |
+          mkdir -p MusicPlayerSrc
+          cp *.swift MusicPlayerSrc/
+          cp -R Assets.xcassets MusicPlayerSrc/
+          echo "Sources:"
+          ls MusicPlayerSrc/
+
+      # 1b. Build each lib framework from its Swift package.
+      #     Produces dynamic .framework bundles in DerivedData/Build/Products/Release-iphoneos/
+      - name: Build lib frameworks
+        run: |
+          ROOT="$PWD"
+          for fw in Core DeBlytes FocusOnMe BetterMusic Suitcase VirtualList; do
+            echo "=== Building $fw ==="
+            (cd "Frameworks/$fw" && xcodebuild \
+              -scheme "$fw" \
+              -destination "generic/platform=iOS" \
+              -derivedDataPath "$ROOT/DerivedData" \
+              -configuration Release \
+              build)
+          done
+          echo "Built frameworks:"
+          ls "$ROOT/DerivedData/Build/Products/Release-iphoneos/" | grep -i framework || true
+
+      # 2. Write Info.plist
+      - name: Create Info.plist
+        run: |
+          cat > MusicPlayerSrc/Info.plist << 'EOS'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>CFBundleDevelopmentRegion</key><string>en</string>
+            <key>CFBundleExecutable</key><string>MusicPlayer</string>
+            <key>CFBundleIdentifier</key><string>com.example.MusicPlayer</string>
+            <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+            <key>CFBundleName</key><string>MusicPlayer</string>
+            <key>CFBundlePackageType</key><string>APPL</string>
+            <key>CFBundleIconName</key><string>AppIcon</string>
+            <key>CFBundleIcons</key>
+            <dict>
+              <key>CFBundlePrimaryIcon</key>
+              <dict>
+                <key>CFBundleIconFiles</key>
+                <array><string>AppIcon</string></array>
+                <key>CFBundleIconName</key><string>AppIcon</string>
+              </dict>
+            </dict>
+            <key>CFBundleShortVersionString</key><string>${APP_VERSION}</string>
+            <key>CFBundleVersion</key><string>${BUILD_NUMBER}</string>
+            <key>LSRequiresIPhoneOS</key><true/>
+            <key>UIFileSharingEnabled</key><true/>
+            <key>LSSupportsOpeningDocumentsInPlace</key><true/>
+            <key>CFBundleURLTypes</key>
+            <array>
+              <dict>
+                <key>CFBundleTypeRole</key><string>Viewer</string>
+                <key>CFBundleURLName</key><string>com.example.MusicPlayer</string>
+                <key>CFBundleURLSchemes</key>
+                <array><string>musicplayer</string></array>
+              </dict>
+            </array>
+            <key>UILaunchScreen</key><dict/>
+            <key>UISupportedInterfaceOrientations</key>
+            <array>
+              <string>UIInterfaceOrientationPortrait</string>
+            </array>
+            <key>UIBackgroundModes</key>
+            <array>
+              <string>audio</string>
+            </array>
+          </dict>
+          </plist>
+          EOS
+
+      # 3. Hand-craft the xcodeproj (objectVersion 56 = Xcode 14/15 compatible)
+      - name: Create Xcode project
+        run: |
+          mkdir -p MusicPlayer.xcodeproj
+          cat > MusicPlayer.xcodeproj/project.pbxproj << 'PBXEOF'
+          // !$*UTF8*$!
+          {
+            archiveVersion = 1;
+            classes = {};
+            objectVersion = 56;
+            objects = {
+
+          /* Begin PBXBuildFile section */
+            AA000001 = {isa = PBXBuildFile; fileRef = BB000001; };
+            AA000002 = {isa = PBXBuildFile; fileRef = BB000002; };
+            AA000003 = {isa = PBXBuildFile; fileRef = BB000003; };
+            AA000006 = {isa = PBXBuildFile; fileRef = BB000006; };
+            AA000007 = {isa = PBXBuildFile; fileRef = BB000007; };
+            AA000008 = {isa = PBXBuildFile; fileRef = BB000008; };
+            AA000009 = {isa = PBXBuildFile; fileRef = BB000009; };
+            AA000010 = {isa = PBXBuildFile; fileRef = BB000010; };
+            AA000011 = {isa = PBXBuildFile; fileRef = BB000011; };
+            AA000012 = {isa = PBXBuildFile; fileRef = BB000012; };
+            AA000013 = {isa = PBXBuildFile; fileRef = BB000013; };
+            AA000014 = {isa = PBXBuildFile; fileRef = BB000014; };
+            AA000015 = {isa = PBXBuildFile; fileRef = BB000015; };
+            AA000019 = {isa = PBXBuildFile; fileRef = BB000019; };
+            AA000022 = {isa = PBXBuildFile; fileRef = BB000022; };
+            AA000023 = {isa = PBXBuildFile; fileRef = BB000023; };
+            AA000024 = {isa = PBXBuildFile; fileRef = BB000024; };
+            AA000025 = {isa = PBXBuildFile; fileRef = BB000025; };
+            AA000026 = {isa = PBXBuildFile; fileRef = BB000026; };
+            AA000027 = {isa = PBXBuildFile; fileRef = BB000027; };
+            AA000028 = {isa = PBXBuildFile; fileRef = BB000022; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+            AA000029 = {isa = PBXBuildFile; fileRef = BB000023; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+            AA000030 = {isa = PBXBuildFile; fileRef = BB000024; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+            AA000031 = {isa = PBXBuildFile; fileRef = BB000025; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+            AA000032 = {isa = PBXBuildFile; fileRef = BB000026; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+            AA000033 = {isa = PBXBuildFile; fileRef = BB000027; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+          /* End PBXBuildFile section */
+
+          /* Begin PBXFileReference section */
+            BB000001 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicPlayerApp.swift; sourceTree = "<group>"; };
+            BB000002 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+            BB000003 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MusicPlayer.swift; sourceTree = "<group>"; };
+            BB000006 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+            BB000007 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtworkView.swift; sourceTree = "<group>"; };
+            BB000008 = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+            BB000009 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+            BB000010 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateService.swift; sourceTree = "<group>"; };
+            BB000011 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayerView.swift; sourceTree = "<group>"; };
+            BB000012 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PresetStore.swift; sourceTree = "<group>"; };
+            BB000013 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SessionModel.swift; sourceTree = "<group>"; };
+            BB000014 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuperPresetStore.swift; sourceTree = "<group>"; };
+            BB000015 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsCommands.swift; sourceTree = "<group>"; };
+            BB000019 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeWarning.swift; sourceTree = "<group>"; };
+            BB000022 = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Core.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+            BB000023 = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DeBlytes.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+            BB000024 = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FocusOnMe.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+            BB000025 = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = BetterMusic.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+            BB000026 = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Suitcase.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+            BB000027 = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = VirtualList.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+            CC000001 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MusicPlayer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+          /* End PBXFileReference section */
+
+          /* Begin PBXFrameworksBuildPhase section */
+            DD000001 = {
+              isa = PBXFrameworksBuildPhase;
+              buildActionMask = 2147483647;
+              files = (AA000022, AA000023, AA000024, AA000025, AA000026, AA000027);
+              runOnlyForDeploymentPostprocessing = 0;
+            };
+          /* End PBXFrameworksBuildPhase section */
+
+          /* Begin PBXCopyFilesBuildPhase section */
+            DD000002 = {
+              isa = PBXCopyFilesBuildPhase;
+              buildActionMask = 2147483647;
+              dstPath = "";
+              dstSubfolderSpec = 10;
+              files = (AA000028, AA000029, AA000030, AA000031, AA000032, AA000033);
+              name = "Embed Frameworks";
+              runOnlyForDeploymentPostprocessing = 0;
+            };
+          /* End PBXCopyFilesBuildPhase section */
+
+          /* Begin PBXGroup section */
+            EE000001 = {
+              isa = PBXGroup;
+              children = (EE000002, EE000003);
+              sourceTree = "<group>";
+            };
+            EE000002 = {
+              isa = PBXGroup;
+              children = (BB000001, BB000002, BB000003, BB000006, BB000007, BB000008, BB000009, BB000010, BB000011, BB000012, BB000013, BB000014, BB000015, BB000019);
+
+              path = MusicPlayerSrc;
+              sourceTree = "<group>";
+            };
+            EE000003 = {
+              isa = PBXGroup;
+              children = (CC000001);
+              name = Products;
+              sourceTree = "<group>";
+            };
+          /* End PBXGroup section */
+
+          /* Begin PBXNativeTarget section */
+            FF000001 = {
+              isa = PBXNativeTarget;
+              buildConfigurationList = FF000010;
+              buildPhases = (FF000002, DD000001, DD000002, FF000003);
+              buildRules = ();
+              dependencies = ();
+              name = MusicPlayer;
+              productName = MusicPlayer;
+              productReference = CC000001;
+              productType = "com.apple.product-type.application";
+            };
+          /* End PBXNativeTarget section */
+
+          /* Begin PBXProject section */
+            FF000000 = {
+              isa = PBXProject;
+              attributes = {
+                LastSwiftUpdateCheck = 1540;
+                LastUpgradeCheck = 1540;
+                TargetAttributes = { FF000001 = { CreatedOnToolsVersion = 15.4; }; };
+              };
+              buildConfigurationList = FF000020;
+              compatibilityVersion = "Xcode 14.0";
+              developmentRegion = en;
+              hasScannedForEncodings = 0;
+              knownRegions = (en, Base);
+              mainGroup = EE000001;
+              productRefGroup = EE000003;
+              projectDirPath = "";
+              projectRoot = "";
+              targets = (FF000001);
+            };
+          /* End PBXProject section */
+
+          /* Begin PBXResourcesBuildPhase section */
+            FF000003 = {
+              isa = PBXResourcesBuildPhase;
+              buildActionMask = 2147483647;
+              files = (AA000008);
+              runOnlyForDeploymentPostprocessing = 0;
+            };
+          /* End PBXResourcesBuildPhase section */
+
+          /* Begin PBXSourcesBuildPhase section */
+            FF000002 = {
+              isa = PBXSourcesBuildPhase;
+              buildActionMask = 2147483647;
+              files = (AA000001, AA000002, AA000003, AA000006, AA000007, AA000009, AA000010, AA000011, AA000012, AA000013, AA000014, AA000015, AA000019);
+              runOnlyForDeploymentPostprocessing = 0;
+            };
+          /* End PBXSourcesBuildPhase section */
+
+          /* Begin XCBuildConfiguration section */
+            FF000011 = {
+              isa = XCBuildConfiguration;
+              buildSettings = {
+                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                CODE_SIGN_IDENTITY = "";
+                CODE_SIGNING_ALLOWED = NO;
+                CODE_SIGNING_REQUIRED = NO;
+                CURRENT_PROJECT_VERSION = 1;
+                DEVELOPMENT_TEAM = "";
+                FRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(BUILT_PRODUCTS_DIR)");
+                GENERATE_INFOPLIST_FILE = NO;
+                INFOPLIST_FILE = MusicPlayerSrc/Info.plist;
+                IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+                LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks");
+                MARKETING_VERSION = 1.0;
+                PRODUCT_BUNDLE_IDENTIFIER = "com.example.MusicPlayer";
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SDKROOT = iphoneos;
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = "1,2";
+              };
+              name = Debug;
+            };
+            FF000012 = {
+              isa = XCBuildConfiguration;
+              buildSettings = {
+                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                CODE_SIGN_IDENTITY = "";
+                CODE_SIGNING_ALLOWED = NO;
+                CODE_SIGNING_REQUIRED = NO;
+                CURRENT_PROJECT_VERSION = 1;
+                DEVELOPMENT_TEAM = "";
+                FRAMEWORK_SEARCH_PATHS = ("$(inherited)", "$(BUILT_PRODUCTS_DIR)");
+                GENERATE_INFOPLIST_FILE = NO;
+                INFOPLIST_FILE = MusicPlayerSrc/Info.plist;
+                IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+                LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/Frameworks");
+                MARKETING_VERSION = 1.0;
+                PRODUCT_BUNDLE_IDENTIFIER = "com.example.MusicPlayer";
+                PRODUCT_NAME = "$(TARGET_NAME)";
+                SDKROOT = iphoneos;
+                SWIFT_VERSION = 5.0;
+                TARGETED_DEVICE_FAMILY = "1,2";
+              };
+              name = Release;
+            };
+            FF000021 = {
+              isa = XCBuildConfiguration;
+              buildSettings = {
+                ALWAYS_SEARCH_USER_PATHS = NO;
+                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                CODE_SIGN_IDENTITY = "";
+                CODE_SIGNING_ALLOWED = NO;
+                CODE_SIGNING_REQUIRED = NO;
+                ONLY_ACTIVE_ARCH = YES;
+                SDKROOT = iphoneos;
+                SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+                SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+              };
+              name = Debug;
+            };
+            FF000022 = {
+              isa = XCBuildConfiguration;
+              buildSettings = {
+                ALWAYS_SEARCH_USER_PATHS = NO;
+                ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+                CODE_SIGN_IDENTITY = "";
+                CODE_SIGNING_ALLOWED = NO;
+                CODE_SIGNING_REQUIRED = NO;
+                SDKROOT = iphoneos;
+                SWIFT_COMPILATION_MODE = wholemodule;
+                SWIFT_OPTIMIZATION_LEVEL = "-O";
+                VALIDATE_PRODUCT = YES;
+              };
+              name = Release;
+            };
+          /* End XCBuildConfiguration section */
+
+          /* Begin XCConfigurationList section */
+            FF000010 = {
+              isa = XCConfigurationList;
+              buildConfigurations = (FF000011, FF000012);
+              defaultConfigurationIsVisible = 0;
+              defaultConfigurationName = Release;
+            };
+            FF000020 = {
+              isa = XCConfigurationList;
+              buildConfigurations = (FF000021, FF000022);
+              defaultConfigurationIsVisible = 0;
+              defaultConfigurationName = Release;
+            };
+          /* End XCConfigurationList section */
+
+            };
+            rootObject = FF000000;
+          }
+          PBXEOF
+
+          mkdir -p "MusicPlayer.xcodeproj/xcshareddata/xcschemes"
+          cat > "MusicPlayer.xcodeproj/xcshareddata/xcschemes/MusicPlayer.xcscheme" << 'SCHEME'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <Scheme LastUpgradeVersion="1540" version="1.7">
+            <BuildAction parallelizeBuildables="YES" buildImplicitDependencies="YES">
+              <BuildActionEntries>
+                <BuildActionEntry buildForArchiving="YES" buildForRunning="YES" buildForTesting="YES" buildForProfiling="YES" buildForAnalyzing="YES">
+                  <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="FF000001"
+                    BuildableName="MusicPlayer.app" BlueprintName="MusicPlayer"
+                    ReferencedContainer="container:MusicPlayer.xcodeproj"/>
+                </BuildActionEntry>
+              </BuildActionEntries>
+            </BuildAction>
+            <ArchiveAction buildConfiguration="Release" revealArchiveInOrganizer="YES"/>
+            <LaunchAction buildConfiguration="Debug" selectedDebuggerIdentifier="Xcode.DebuggerFoundation.Debugger.LLDB"
+              selectedLauncherIdentifier="Xcode.DebuggerFoundation.Launcher.LLDB">
+              <BuildableProductRunnable runnableDebuggingMode="0">
+                <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="FF000001"
+                  BuildableName="MusicPlayer.app" BlueprintName="MusicPlayer"
+                  ReferencedContainer="container:MusicPlayer.xcodeproj"/>
+              </BuildableProductRunnable>
+            </LaunchAction>
+            <TestAction buildConfiguration="Debug"/>
+            <ProfileAction buildConfiguration="Release"/>
+            <AnalyzeAction buildConfiguration="Debug"/>
+          </Scheme>
+          SCHEME
+          echo "Done. xcodeproj contents:"
+          ls -R MusicPlayer.xcodeproj
+
+      # 4. Build an unsigned device app for release/share distribution.
+      #    NOTE: no `clean` here — it would wipe the frameworks built in step 1b.
+      #    Use Release to match the Release-iphoneos frameworks from step 1b.
+      - name: Build for iOS device
+        run: |
+          xcodebuild \
+            -project MusicPlayer.xcodeproj \
+            -scheme MusicPlayer \
+            -configuration Release \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath $PWD/DerivedData \
+            build
+
+      # 5. Package the .app directly into an IPA (no archive/export needed)
+      #    An IPA is just a zip of Payload/<AppName>.app
+      - name: Package unsigned IPA from device .app
+        id: package_ipa
+        run: |
+          APP_PATH=$(find $PWD/DerivedData -name "MusicPlayer.app" -not -path "*/Index.noindex/*" | head -1)
+          echo "Found .app at: $APP_PATH"
+
+          mkdir -p Payload
+          cp -r "$APP_PATH" Payload/MusicPlayer.app
+
+          zip -r MusicPlayer.ipa Payload/
+          echo "IPA size: $(du -sh MusicPlayer.ipa)"
+          echo "ipa_path=$PWD/MusicPlayer.ipa" >> $GITHUB_OUTPUT
+
+      # 6. Upload IPA as artifact
+      - name: Upload unsigned IPA artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: MusicPlayer.unsigned.ipa
+          path: ${{ steps.package_ipa.outputs.ipa_path }}
+          retention-days: 7
+
+      - name: Publish tagged IPA release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: MusicPlayer.ipa
+          generate_release_notes: true
+
+  # Separate job: verify every lib framework also compiles for the iOS Simulator.
+  # This catches simulator-only compile issues without needing a local Mac,
+  # and is the closest free proxy to "does it run".
+  simulator-build:
+    runs-on: macos-14
+    env:
+      CODE_SIGNING_ALLOWED: NO
+      CODE_SIGNING_REQUIRED: NO
+      CODE_SIGN_IDENTITY: ""
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build lib frameworks for iOS Simulator
+        run: |
+          ROOT="$PWD"
+          for fw in Core DeBlytes FocusOnMe BetterMusic Suitcase VirtualList; do
+            echo "=== Building $fw for simulator ==="
+            (cd "Frameworks/$fw" && xcodebuild \
+              -scheme "$fw" \
+              -destination "generic/platform=iOS Simulator" \
+              -derivedDataPath "$ROOT/DerivedData-Sim" \
+              -configuration Debug \
+              build)
+          done
+          echo "All frameworks built for simulator."

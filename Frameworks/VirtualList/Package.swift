@@ -1,0 +1,19 @@
+// swift-tools-version:5.9
+import PackageDescription
+
+let package = Package(
+    name: "VirtualList",
+    platforms: [.iOS(.v16)],
+    products: [
+        .library(name: "VirtualList", targets: ["VirtualList"])
+    ],
+    dependencies: [
+        .package(path: "../Core")
+    ],
+    targets: [
+        .target(
+            name: "VirtualList",
+            dependencies: ["Core"]
+        )
+    ]
+)
