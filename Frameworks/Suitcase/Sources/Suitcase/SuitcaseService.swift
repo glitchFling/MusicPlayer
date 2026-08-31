@@ -167,29 +167,24 @@ public struct SuitcaseService {
         }
     }
 
-    /// Decompress raw deflate (RFC 1951) using Apple's Compression framework.
-    /// We use compression_stream in decode mode for raw deflate, which avoids
-    /// the window-size pitfalls of fabricating a zlib header.
+    /// Decompress a raw DEFLATE (RFC 1951) stream using Apple's Compression
+    /// framework. ZIP entries store raw deflate (no zlib wrapper), so we wrap
+    /// the bytes in a zlib container with a maximal 32KB window (header 0x78
+    /// 0xDA) and let COMPRESSION_ZLIB decode it. Pre-allocating the exact
+    /// output size means we don't rely on the trailing adler32 value.
     private static func decompressDeflate(_ data: Data, uncompressedSize: Int) throws -> Data {
-        var result = Data(count: uncompressedSize)
-
-        // compression_stream can route raw DEFLATE correctly by using
-        // COMPRESSION_ZLIB in streaming mode, but ZIP stores raw deflate.
-        // Apple's Compression framework does not expose raw deflate directly,
-        // so wrap it in a zlib container with a maximal window (0x78 0xDA).
         var zlibData = Data([0x78, 0xDA])   // zlib header, window = 32KB (max)
         zlibData.append(data)
-        // Append a valid adler32 placeholder (decoder reads it; we pre-alloc
-        // the correct output size, so the checksum value is ignored).
+        // Trailing adler32 is not validated by decode_buffer when the dest
+        // size matches, but append 4 placeholder bytes to be safe.
         zlibData.append(contentsOf: [0x00, 0x00, 0x00, 0x00])
 
-        let status = result.withUnsafeMutableBytes { destBuf -> Int in
-            zlibData.withUnsafeBytes { srcBuf in
+        var result = Data(count: uncompressedSize)
+        let status = result.withUnsafeMutableBytes { (destBuf: UnsafeMutableRawBufferPointer) -> Int in
+            zlibData.withUnsafeBytes { (srcBuf: UnsafeRawBufferPointer) in
                 guard let destPtr = destBuf.baseAddress, let srcPtr = srcBuf.baseAddress else {
                     return -1
                 }
-                // Stream in one shot; compression_decode_buffer requires the
-                // entire stream to be present, which it is.
                 return compression_decode_buffer(
                     destPtr.assumingMemoryBound(to: UInt8.self),
                     uncompressedSize,
@@ -202,62 +197,11 @@ public struct SuitcaseService {
         }
 
         guard status == uncompressedSize else {
-            // Fall back: try streaming decode which tolerates truncated input.
-            if let streamDecoded = try? streamingInflate(zlibData, expected: uncompressedSize),
-               streamDecoded.count == uncompressedSize {
-                return streamDecoded
-            }
             throw SuitcaseError.extractionFailed(
                 "Decompression produced \(status) bytes, expected \(uncompressedSize)."
             )
         }
         return result
-    }
-
-    /// Tolerant streaming inflate fallback.
-    private static func streamingInflate(_ zlibData: Data, expected: Int) throws -> Data {
-        var stream = compression_stream()
-        guard compression_stream_init(&stream, COMPRESSION_STREAM_DECODE, COMPRESSION_ZLIB) == COMPRESSION_STATUS_OK else {
-            throw SuitcaseError.extractionFailed("Could not initialize decompressor.")
-        }
-        defer { compression_stream_destroy(&stream) }
-
-        var output = Data(count: expected)
-        let dstSize = 65536
-        var dstBuf = [UInt8](repeating: 0, count: dstSize)
-
-        let src = zlibData.withUnsafeBytes { $0.bindMemory(to: UInt8.self) }
-        stream.src_ptr = src.baseAddress!
-        stream.src_size = zlibData.count
-        stream.dst_ptr = dstBuf.withUnsafeMutableBytes { $0.bindMemory(to: UInt8.self).baseAddress! }
-        stream.dst_size = dstSize
-
-        var written = 0
-        while true {
-            let status = compression_stream_process(&stream, Int32(COMPRESSION_STREAM_FINALIZE))
-            if status == COMPRESSION_STATUS_END {
-                let produced = dstSize - stream.dst_size
-                if written + produced <= output.count {
-                    output.replaceSubrange(written..<written + produced, with: dstBuf[0..<produced])
-                    written += produced
-                }
-                return output.prefix(written)
-            }
-            if status == COMPRESSION_STATUS_ERROR {
-                throw SuitcaseError.extractionFailed("Decompression error.")
-            }
-            let produced = dstSize - stream.dst_size
-            if produced == 0 {
-                // No progress; avoid infinite loop.
-                throw SuitcaseError.extractionFailed("Decompression stalled.")
-            }
-            if written + produced <= output.count {
-                output.replaceSubrange(written..<written + produced, with: dstBuf[0..<produced])
-                written += produced
-            }
-            stream.dst_ptr = dstBuf.withUnsafeMutableBytes { $0.bindMemory(to: UInt8.self).baseAddress! }
-            stream.dst_size = dstSize
-        }
     }
 
     // MARK: - Helpers
