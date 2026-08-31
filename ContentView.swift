@@ -437,7 +437,6 @@ struct ContentView: View {
                         .disabled(selectedSongs.isEmpty)
                     }
                 }
-            }
         }
     }
 
