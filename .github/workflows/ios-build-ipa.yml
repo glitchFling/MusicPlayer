@@ -15,7 +15,7 @@ jobs:
   build:
     permissions:
       contents: write
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       CODE_SIGNING_ALLOWED: NO
       CODE_SIGNING_REQUIRED: NO
@@ -460,7 +460,7 @@ jobs:
   # This catches simulator-only compile issues without needing a local Mac,
   # and is the closest free proxy to "does it run".
   simulator-build:
-    runs-on: macos-14
+    runs-on: macos-15
     env:
       CODE_SIGNING_ALLOWED: NO
       CODE_SIGNING_REQUIRED: NO
