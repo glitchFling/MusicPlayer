@@ -29,6 +29,8 @@ struct PlayerView: View {
     @State private var applyingSuperPreset: SuperPreset?
     @State private var showSuperPresetWarning = false
     @State private var superPresetError: String?
+    @State private var showingSuperPresetError = false
+    @State private var superPresetErrorMessage = ""
 
     private var isPlaying: Bool { player.playbackState == .playing }
     private var accent: Color { accents.color }
@@ -276,5 +278,19 @@ struct PlayerView: View {
 
 struct GradientIconButtonStyle: ButtonStyle {
     let gradient: LinearGradient
-    func makeBody(configuration: Configuration) -> some View { configuration.label.font(.system(size: 18, weight: .semibold)).foregroundColor(.white).frame(width: 64, height: 64).background(gradient).clipShape(Circle()).overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 1)).scaleEffect(configuration.isPressed ? 0.92 : 1) }
+    func makeBody(configuration: Configuration) -> some View {
+        let scale: CGFloat
+        switch configuration.isPressed {
+        case true:  scale = 0.92
+        case false: scale = 1
+        }
+        return configuration.label
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundColor(.white)
+            .frame(width: 64, height: 64)
+            .background(gradient)
+            .clipShape(Circle())
+            .overlay(Circle().stroke(Color.white.opacity(0.25), lineWidth: 1))
+            .scaleEffect(scale)
+    }
 }

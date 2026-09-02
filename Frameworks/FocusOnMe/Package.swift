@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "FocusOnMe",
-    platforms: [.iOS(.v16)],
+    platforms: [.iOS(.v17)],
     products: [
         .library(name: "FocusOnMe", type: .dynamic, targets: ["FocusOnMe"])
     ],

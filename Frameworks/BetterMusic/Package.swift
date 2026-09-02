@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "BetterMusic",
-    platforms: [.iOS(.v16)],
+    platforms: [.iOS(.v17)],
     products: [
         .library(name: "BetterMusic", type: .dynamic, targets: ["BetterMusic"])
     ],

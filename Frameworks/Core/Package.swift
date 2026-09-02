@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "Core",
-    platforms: [.iOS(.v16)],
+    platforms: [.iOS(.v17)],
     products: [
         .library(name: "Core", type: .dynamic, targets: ["Core"])
     ],

@@ -20,5 +20,10 @@ build/
 *.ipa
 Payload/
 
+# On-device AI models (downloaded at runtime, never committed)
+*.gguf
+*.safetensors
+Frameworks/AspaltAI/Models/
+
 # Misc
 *.log

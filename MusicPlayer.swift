@@ -80,6 +80,7 @@ final class MusicPlayer: ObservableObject {
     }
 
     func load(_ song: Song) {
+        AspaltVision.shared.analyzeAndLog(song: song)
         do {
             let file = try AVAudioFile(forReading: song.fileURL)
             loadGeneration += 1

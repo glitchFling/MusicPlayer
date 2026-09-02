@@ -3,7 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "DeBlytes",
-    platforms: [.iOS(.v16)],
+    platforms: [.iOS(.v17)],
     products: [
         .library(name: "DeBlytes", type: .dynamic, targets: ["DeBlytes"])
     ],
