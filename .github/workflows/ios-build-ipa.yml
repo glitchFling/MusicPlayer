@@ -41,31 +41,9 @@ jobs:
           echo "Sources:"
           ls MusicPlayerSrc/
 
-      # 1b. Build ONLY the AspaltAI framework (it needs MLX via SPM).
-      #     All other libs are compiled flat into the app target.
-      - name: Build AspaltAI framework
-        run: |
-          ROOT="$PWD"
-          PROD="$ROOT/DerivedData/Build/Products/Release-iphoneos"
-          mkdir -p "$PROD"
-          (cd "Frameworks/AspaltAI" && xcodebuild \
-            -scheme "AspaltAI" \
-            -destination "generic/platform=iOS" \
-            -derivedDataPath "$ROOT/DerivedData" \
-            -configuration Release \
-            build)
-          echo "=== Locating built frameworks ==="
-          find "$ROOT/DerivedData" -name "*.framework" -maxdepth 8 -print
-          SRC=$(find "$ROOT/DerivedData" -name "AspaltAI.framework" -type d -maxdepth 8 | head -1)
-          if [ -n "$SRC" ]; then
-            cp -R "$SRC" "$PROD/"
-            echo "Copied AspaltAI.framework -> $PROD"
-          else
-            echo "ERROR: AspaltAI.framework not found"
-            exit 1
-          fi
-          echo "=== Product dir frameworks ==="
-          ls "$PROD"
+      # 1b. No frameworks to pre-build — all libs are compiled flat into the
+      #     app target. (AspaltAI/MLX removed: too heavy for CI. Telemetry +
+      #     Vision features remain, they use only Apple's built-in frameworks.)
 
       # 2. Write Info.plist
       - name: Create Info.plist
@@ -146,8 +124,6 @@ jobs:
             AA000015 = {isa = PBXBuildFile; fileRef = BB000015; };
             AA000019 = {isa = PBXBuildFile; fileRef = BB000019; };
             AA000028 = {isa = PBXBuildFile; fileRef = BB000022; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-            AA000029 = {isa = PBXBuildFile; fileRef = BB000028; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-            AA000030 = {isa = PBXBuildFile; fileRef = BB000028; };
             /* Flattened lib sources */
             AA000040 = {isa = PBXBuildFile; fileRef = BB000040; };
             AA000041 = {isa = PBXBuildFile; fileRef = BB000041; };
@@ -185,7 +161,6 @@ jobs:
             BB000046 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualListStore.swift; sourceTree = "<group>"; };
             BB000047 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryAspalt.swift; sourceTree = "<group>"; };
             BB000048 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AspaltVision.swift; sourceTree = "<group>"; };
-            BB000028 = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = AspaltAI.framework; sourceTree = BUILT_PRODUCTS_DIR; };
             CC000001 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MusicPlayer.app; sourceTree = BUILT_PRODUCTS_DIR; };
           /* End PBXFileReference section */
 
@@ -193,7 +168,7 @@ jobs:
             DD000001 = {
               isa = PBXFrameworksBuildPhase;
               buildActionMask = 2147483647;
-              files = (AA000030);
+              files = ();
               runOnlyForDeploymentPostprocessing = 0;
             };
           /* End PBXFrameworksBuildPhase section */
@@ -204,7 +179,7 @@ jobs:
               buildActionMask = 2147483647;
               dstPath = "";
               dstSubfolderSpec = 10;
-              files = (AA000028, AA000029);
+              files = ();
               name = "Embed Frameworks";
               runOnlyForDeploymentPostprocessing = 0;
             };
@@ -469,13 +444,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build AspaltAI framework for iOS Simulator
+      - name: Syntax-check all app Swift sources for iOS Simulator
         run: |
-          ROOT="$PWD"
-          (cd "Frameworks/AspaltAI" && xcodebuild \
-            -scheme "AspaltAI" \
-            -destination "generic/platform=iOS Simulator" \
-            -derivedDataPath "$ROOT/DerivedData-Sim" \
-            -configuration Debug \
-            build)
-          echo "AspaltAI built for simulator."
+          # Compile-check every app source (including flattened libs) against
+          # the iOS Simulator SDK. Catches syntax/type errors without a project.
+          mkdir -p /tmp/simcheck
+          xcrun -sdk iphonesimulator swiftc -typecheck \
+            -target arm64-apple-ios17.0-simulator \
+            -swift-version 5 \
+            *.swift
+          echo "All app sources type-check for simulator."

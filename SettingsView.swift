@@ -1,4 +1,3 @@
-import AspaltAI
 import SwiftUI
 
 struct SettingsView: View {
@@ -10,28 +9,9 @@ struct SettingsView: View {
     @AppStorage("debyltes_enabled") private var deblytesEnabled = false
     @AppStorage("focusonme_enabled") private var focusOnMeEnabled = false
     @ObservedObject private var telemetry = TelemetryAspalt.shared
-    @ObservedObject private var aspaltAI = AspaltAI.shared
-    @State private var sessionSummary: String?
     @AppStorage("volumewarning_autoskip") private var volumeWarningAutoSkip = true
     @AppStorage("volumewarning_threshold") private var volumeWarningThreshold: Double = 20.0
     @AppStorage("debyltes_speed") private var deblytesSpeed: Double = 10.0
-
-    /// Reads the newest telemetry log and asks the on-device model for a summary.
-    private func summarizeSession() {
-        guard let newest = telemetry.savedLogs().first,
-              let text = try? String(contentsOf: newest, encoding: .utf8) else {
-            sessionSummary = "No telemetry log found for this session."
-            return
-        }
-        Task {
-            do {
-                let summary = try await aspaltAI.summarizeTelemetryLog(text)
-                await MainActor.run { sessionSummary = summary }
-            } catch {
-                await MainActor.run { sessionSummary = "AI error: \(error.localizedDescription)" }
-            }
-        }
-    }
 
     var body: some View {
         ZStack {
@@ -179,48 +159,6 @@ struct SettingsView: View {
                         }
                         .foregroundColor(.deckBone)
                         .listRowBackground(Color.deckGraphite)
-
-                        // MARK: On-device AI (AspaltAI via MLX)
-                        if aspaltAI.isModelDownloaded {
-                            Button {
-                                summarizeSession()
-                            } label: {
-                                HStack {
-                                    Label("Summarize Session", systemImage: "sparkles")
-                                    if aspaltAI.isPreparing { Spacer(); ProgressView().tint(.deckBrass) }
-                                }
-                            }
-                            .foregroundColor(.deckBone)
-                            .listRowBackground(Color.deckGraphite)
-                            .disabled(aspaltAI.isPreparing)
-                        } else {
-                            Button {
-                                Task { await aspaltAI.downloadModel() }
-                            } label: {
-                                HStack {
-                                    Label("Download AI Model", systemImage: "arrow.down.circle")
-                                    if aspaltAI.isPreparing {
-                                        Spacer()
-                                        ProgressView(value: aspaltAI.downloadProgress).tint(.deckBrass)
-                                    }
-                                }
-                            }
-                            .foregroundColor(.deckBone)
-                            .listRowBackground(Color.deckGraphite)
-                            .disabled(aspaltAI.isPreparing)
-                        }
-                        if let summary = sessionSummary {
-                            Text(summary)
-                                .font(.system(size: 12, design: .monospaced))
-                                .foregroundColor(.deckBone.opacity(0.75))
-                                .listRowBackground(Color.deckGraphite)
-                        }
-                        if let aiError = aspaltAI.lastError {
-                            Text(aiError)
-                                .font(.caption)
-                                .foregroundColor(.deckBone.opacity(0.5))
-                                .listRowBackground(Color.deckGraphite)
-                        }
                     }
                 } header: {
                     Text("TELEMETRY ASPALT")
