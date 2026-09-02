@@ -1,6 +1,5 @@
 import AVFoundation
 import Combine
-import Core
 import Foundation
 
 final class MusicPlayer: ObservableObject {

@@ -41,35 +41,29 @@ jobs:
           echo "Sources:"
           ls MusicPlayerSrc/
 
-      # 1b. Build each lib framework from its Swift package.
-      #     Produces dynamic .framework bundles and copies them into the
-      #     app's product directory so the linker can find them.
-      - name: Build lib frameworks
+      # 1b. Build ONLY the AspaltAI framework (it needs MLX via SPM).
+      #     All other libs are compiled flat into the app target.
+      - name: Build AspaltAI framework
         run: |
           ROOT="$PWD"
           PROD="$ROOT/DerivedData/Build/Products/Release-iphoneos"
           mkdir -p "$PROD"
-          for fw in Core DeBlytes FocusOnMe BetterMusic Suitcase VirtualList AspaltAI; do
-            echo "=== Building $fw ==="
-            (cd "Frameworks/$fw" && xcodebuild \
-              -scheme "$fw" \
-              -destination "generic/platform=iOS" \
-              -derivedDataPath "$ROOT/DerivedData" \
-              -configuration Release \
-              build)
-          done
+          (cd "Frameworks/AspaltAI" && xcodebuild \
+            -scheme "AspaltAI" \
+            -destination "generic/platform=iOS" \
+            -derivedDataPath "$ROOT/DerivedData" \
+            -configuration Release \
+            build)
           echo "=== Locating built frameworks ==="
           find "$ROOT/DerivedData" -name "*.framework" -maxdepth 8 -print
-          # Defensively copy each built framework into the app product dir.
-          for fw in Core DeBlytes FocusOnMe BetterMusic Suitcase VirtualList AspaltAI; do
-            SRC=$(find "$ROOT/DerivedData" -name "$fw.framework" -type d -maxdepth 8 | head -1)
-            if [ -n "$SRC" ]; then
-              cp -R "$SRC" "$PROD/"
-              echo "Copied $fw.framework -> $PROD"
-            else
-              echo "WARNING: $fw.framework not found on disk"
-            fi
-          done
+          SRC=$(find "$ROOT/DerivedData" -name "AspaltAI.framework" -type d -maxdepth 8 | head -1)
+          if [ -n "$SRC" ]; then
+            cp -R "$SRC" "$PROD/"
+            echo "Copied AspaltAI.framework -> $PROD"
+          else
+            echo "ERROR: AspaltAI.framework not found"
+            exit 1
+          fi
           echo "=== Product dir frameworks ==="
           ls "$PROD"
 
@@ -151,20 +145,19 @@ jobs:
             AA000014 = {isa = PBXBuildFile; fileRef = BB000014; };
             AA000015 = {isa = PBXBuildFile; fileRef = BB000015; };
             AA000019 = {isa = PBXBuildFile; fileRef = BB000019; };
-            AA000022 = {isa = PBXBuildFile; fileRef = BB000022; };
-            AA000023 = {isa = PBXBuildFile; fileRef = BB000023; };
-            AA000024 = {isa = PBXBuildFile; fileRef = BB000024; };
-            AA000025 = {isa = PBXBuildFile; fileRef = BB000025; };
-            AA000026 = {isa = PBXBuildFile; fileRef = BB000026; };
-            AA000027 = {isa = PBXBuildFile; fileRef = BB000027; };
             AA000028 = {isa = PBXBuildFile; fileRef = BB000022; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-            AA000029 = {isa = PBXBuildFile; fileRef = BB000023; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-            AA000030 = {isa = PBXBuildFile; fileRef = BB000024; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-            AA000031 = {isa = PBXBuildFile; fileRef = BB000025; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-            AA000032 = {isa = PBXBuildFile; fileRef = BB000026; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-            AA000033 = {isa = PBXBuildFile; fileRef = BB000027; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-            AA000034 = {isa = PBXBuildFile; fileRef = BB000028; };
-            AA000035 = {isa = PBXBuildFile; fileRef = BB000028; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+            AA000029 = {isa = PBXBuildFile; fileRef = BB000028; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
+            AA000030 = {isa = PBXBuildFile; fileRef = BB000028; };
+            /* Flattened lib sources */
+            AA000040 = {isa = PBXBuildFile; fileRef = BB000040; };
+            AA000041 = {isa = PBXBuildFile; fileRef = BB000041; };
+            AA000042 = {isa = PBXBuildFile; fileRef = BB000042; };
+            AA000043 = {isa = PBXBuildFile; fileRef = BB000043; };
+            AA000044 = {isa = PBXBuildFile; fileRef = BB000044; };
+            AA000045 = {isa = PBXBuildFile; fileRef = BB000045; };
+            AA000046 = {isa = PBXBuildFile; fileRef = BB000046; };
+            AA000047 = {isa = PBXBuildFile; fileRef = BB000047; };
+            AA000048 = {isa = PBXBuildFile; fileRef = BB000048; };
           /* End PBXBuildFile section */
 
           /* Begin PBXFileReference section */
@@ -182,12 +175,16 @@ jobs:
             BB000014 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuperPresetStore.swift; sourceTree = "<group>"; };
             BB000015 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutsCommands.swift; sourceTree = "<group>"; };
             BB000019 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VolumeWarning.swift; sourceTree = "<group>"; };
-            BB000022 = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Core.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-            BB000023 = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DeBlytes.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-            BB000024 = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = FocusOnMe.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-            BB000025 = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = BetterMusic.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-            BB000026 = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Suitcase.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-            BB000027 = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = VirtualList.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+            /* Flattened lib sources */
+            BB000040 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Song.swift; sourceTree = "<group>"; };
+            BB000041 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SongLibrary.swift; sourceTree = "<group>"; };
+            BB000042 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DeBlytes.swift; sourceTree = "<group>"; };
+            BB000043 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FocusOnMe.swift; sourceTree = "<group>"; };
+            BB000044 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BetterMusic.swift; sourceTree = "<group>"; };
+            BB000045 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SuitcaseService.swift; sourceTree = "<group>"; };
+            BB000046 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VirtualListStore.swift; sourceTree = "<group>"; };
+            BB000047 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TelemetryAspalt.swift; sourceTree = "<group>"; };
+            BB000048 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AspaltVision.swift; sourceTree = "<group>"; };
             BB000028 = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = AspaltAI.framework; sourceTree = BUILT_PRODUCTS_DIR; };
             CC000001 = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = MusicPlayer.app; sourceTree = BUILT_PRODUCTS_DIR; };
           /* End PBXFileReference section */
@@ -196,7 +193,7 @@ jobs:
             DD000001 = {
               isa = PBXFrameworksBuildPhase;
               buildActionMask = 2147483647;
-              files = (AA000022, AA000023, AA000024, AA000025, AA000026, AA000027, AA000034);
+              files = (AA000030);
               runOnlyForDeploymentPostprocessing = 0;
             };
           /* End PBXFrameworksBuildPhase section */
@@ -207,7 +204,7 @@ jobs:
               buildActionMask = 2147483647;
               dstPath = "";
               dstSubfolderSpec = 10;
-              files = (AA000028, AA000029, AA000030, AA000031, AA000032, AA000033, AA000035);
+              files = (AA000028, AA000029);
               name = "Embed Frameworks";
               runOnlyForDeploymentPostprocessing = 0;
             };
@@ -221,7 +218,7 @@ jobs:
             };
             EE000002 = {
               isa = PBXGroup;
-              children = (BB000001, BB000002, BB000003, BB000006, BB000007, BB000008, BB000009, BB000010, BB000011, BB000012, BB000013, BB000014, BB000015, BB000019);
+              children = (BB000001, BB000002, BB000003, BB000006, BB000007, BB000008, BB000009, BB000010, BB000011, BB000012, BB000013, BB000014, BB000015, BB000019, BB000040, BB000041, BB000042, BB000043, BB000044, BB000045, BB000046, BB000047, BB000048);
 
               path = MusicPlayerSrc;
               sourceTree = "<group>";
@@ -282,7 +279,7 @@ jobs:
             FF000002 = {
               isa = PBXSourcesBuildPhase;
               buildActionMask = 2147483647;
-              files = (AA000001, AA000002, AA000003, AA000006, AA000007, AA000009, AA000010, AA000011, AA000012, AA000013, AA000014, AA000015, AA000019);
+              files = (AA000001, AA000002, AA000003, AA000006, AA000007, AA000009, AA000010, AA000011, AA000012, AA000013, AA000014, AA000015, AA000019, AA000040, AA000041, AA000042, AA000043, AA000044, AA000045, AA000046, AA000047, AA000048);
               runOnlyForDeploymentPostprocessing = 0;
             };
           /* End PBXSourcesBuildPhase section */
@@ -472,16 +469,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Build lib frameworks for iOS Simulator
+      - name: Build AspaltAI framework for iOS Simulator
         run: |
           ROOT="$PWD"
-          for fw in Core DeBlytes FocusOnMe BetterMusic Suitcase VirtualList AspaltAI; do
-            echo "=== Building $fw for simulator ==="
-            (cd "Frameworks/$fw" && xcodebuild \
-              -scheme "$fw" \
-              -destination "generic/platform=iOS Simulator" \
-              -derivedDataPath "$ROOT/DerivedData-Sim" \
-              -configuration Debug \
-              build)
-          done
-          echo "All frameworks built for simulator."
+          (cd "Frameworks/AspaltAI" && xcodebuild \
+            -scheme "AspaltAI" \
+            -destination "generic/platform=iOS Simulator" \
+            -derivedDataPath "$ROOT/DerivedData-Sim" \
+            -configuration Debug \
+            build)
+          echo "AspaltAI built for simulator."

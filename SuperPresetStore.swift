@@ -1,5 +1,4 @@
 import Combine
-import Core
 import Foundation
 
 // MARK: - Data model

@@ -1,10 +1,5 @@
-import BetterMusic
-import Core
-import DeBlytes
-import FocusOnMe
 import AspaltAI
 import SwiftUI
-import VirtualList
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss

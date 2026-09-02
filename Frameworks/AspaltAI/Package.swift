@@ -9,9 +9,10 @@ let package = Package(
     ],
     dependencies: [
         // MLX Swift examples provide MLXLMCommon: LLM loading + generation on device.
+        // Pinned to a stable release series (main branch is a moving target).
         .package(
             url: "https://github.com/ml-explore/mlx-swift-examples.git",
-            branch: "main"
+            .upToNextMajor(from: "2.29.1")
         )
     ],
     targets: [

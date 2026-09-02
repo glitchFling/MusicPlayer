@@ -15,6 +15,7 @@ xcuserdata/
 .build/
 .swiftpm/
 build/
+Package.resolved
 
 # IPA / Payload artifacts
 *.ipa

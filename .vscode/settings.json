@@ -1,0 +1,14 @@
+{
+    "swift.autoGenerateLaunchConfigurations": false,
+    "swift.disableAutoResolve": true,
+    "swift.backgroundCompilation": false,
+    "sourcekit-lsp.serverArguments": [],
+    "files.watcherExclude": {
+        "**/Frameworks/AspaltAI/.build/**": true,
+        "**/DerivedData/**": true
+    },
+    "search.exclude": {
+        "**/Frameworks/AspaltAI/.build": true,
+        "**/DerivedData": true
+    }
+}
